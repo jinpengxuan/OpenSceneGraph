@@ -127,7 +127,7 @@ public:
 
     virtual void deleteAllGLObjects()
     {
-         OSG_INFO<<"DisplayListManager::deleteAllGLObjects() Not currently implementated"<<std::endl;
+         OSG_INFO<<"DisplayListManager::deleteAllGLObjects() Not currently implemented"<<std::endl;
     }
 
     virtual void discardAllGLObjects()
@@ -240,8 +240,8 @@ Drawable::Drawable()
 
 Drawable::Drawable(const Drawable& drawable,const CopyOp& copyop):
     Node(drawable,copyop),
-    _initialBound(drawable._initialBound),
-    _computeBoundCallback(drawable._computeBoundCallback),
+    _initialBoundingBox(drawable._initialBoundingBox),
+    _computeBoundingBoxCallback(drawable._computeBoundingBoxCallback),
     _boundingBox(drawable._boundingBox),
     _shape(copyop(drawable._shape.get())),
     _supportsDisplayList(drawable._supportsDisplayList),
@@ -249,14 +249,35 @@ Drawable::Drawable(const Drawable& drawable,const CopyOp& copyop):
     _supportsVertexBufferObjects(drawable._supportsVertexBufferObjects),
     _useVertexBufferObjects(drawable._useVertexBufferObjects),
     _useVertexArrayObject(drawable._useVertexArrayObject),
-    _drawCallback(drawable._drawCallback)
+    _drawCallback(drawable._drawCallback),
+    _createVertexArrayStateCallback(drawable._createVertexArrayStateCallback)
 {
-    setStateSet(copyop(drawable._stateset.get()));
 }
 
 Drawable::~Drawable()
 {
-    dirtyDisplayList();
+    // clean up display lists if assigned, for the display lists size  we can't use glGLObjectSizeHint() as it's a virtual function, so have to default to a 0 size hint.
+    #ifdef OSG_GL_DISPLAYLISTS_AVAILABLE
+    for(unsigned int i=0;i<_globjList.size();++i)
+    {
+        if (_globjList[i] != 0)
+        {
+            Drawable::deleteDisplayList(i,_globjList[i], 0); // we don't know getGLObjectSizeHint()
+            _globjList[i] = 0;
+        }
+    }
+    #endif
+
+    // clean up VertexArrayState
+    for(unsigned int i=0; i<_vertexArrayStateList.size(); ++i)
+    {
+        VertexArrayState* vas = _vertexArrayStateList[i].get();
+        if (vas)
+        {
+            vas->release();
+            _vertexArrayStateList[i] = 0;
+        }
+    }
 }
 
 osg::MatrixList Drawable::getWorldMatrices(const osg::Node* haltTraversalAtNode) const
@@ -318,6 +339,7 @@ void Drawable::releaseGLObjects(State* state) const
         // current OpenGL context.
         unsigned int contextID = state->getContextID();
 
+    #ifdef OSG_GL_DISPLAYLISTS_AVAILABLE
         if (_useDisplayList)
         {
             // get the globj for the current contextID.
@@ -330,6 +352,7 @@ void Drawable::releaseGLObjects(State* state) const
                 globj = 0;
             }
         }
+    #endif
 
         VertexArrayState* vas = contextID <_vertexArrayStateList.size() ? _vertexArrayStateList[contextID].get() : 0;
         if (vas)
@@ -340,7 +363,26 @@ void Drawable::releaseGLObjects(State* state) const
     }
     else
     {
-        const_cast<Drawable*>(this)->dirtyGLObjects();
+    #ifdef OSG_GL_DISPLAYLISTS_AVAILABLE
+        for(unsigned int i=0;i<_globjList.size();++i)
+        {
+            if (_globjList[i] != 0)
+            {
+                Drawable::deleteDisplayList(i,_globjList[i], getGLObjectSizeHint());
+                _globjList[i] = 0;
+            }
+        }
+    #endif
+
+        for(unsigned int i=0; i<_vertexArrayStateList.size(); ++i)
+        {
+            VertexArrayState* vas = _vertexArrayStateList[i].get();
+            if (vas)
+            {
+                vas->release();
+                _vertexArrayStateList[i] = 0;
+            }
+        }
     }
 }
 
@@ -357,7 +399,7 @@ void Drawable::setSupportsDisplayList(bool flag)
         {
             // used to support display lists and display lists switched
             // on so now delete them and turn useDisplayList off.
-            dirtyDisplayList();
+            dirtyGLObjects();
             _useDisplayList = false;
         }
     }
@@ -379,7 +421,7 @@ void Drawable::setUseDisplayList(bool flag)
 
     if (_useDisplayList)
     {
-        dirtyDisplayList();
+        dirtyGLObjects();
     }
 
     if (_supportsDisplayList)
@@ -432,16 +474,10 @@ void Drawable::setUseVertexBufferObjects(bool flag)
     _useVertexBufferObjects = flag;
 }
 
-void Drawable::dirtyDisplayList()
-{
-    dirtyGLObjects();
-}
-
 void Drawable::dirtyGLObjects()
 {
-    unsigned int i;
 #ifdef OSG_GL_DISPLAYLISTS_AVAILABLE
-    for(i=0;i<_globjList.size();++i)
+    for(unsigned int i=0;i<_globjList.size();++i)
     {
         if (_globjList[i] != 0)
         {
@@ -451,7 +487,7 @@ void Drawable::dirtyGLObjects()
     }
 #endif
 
-    for(i=0; i<_vertexArrayStateList.size(); ++i)
+    for(unsigned int i=0; i<_vertexArrayStateList.size(); ++i)
     {
         VertexArrayState* vas = _vertexArrayStateList[i].get();
         if (vas) vas->dirty();
@@ -696,8 +732,9 @@ void Drawable::draw(RenderInfo& renderInfo) const
 
 #endif
 
-VertexArrayState* Drawable::createVertexArrayState(RenderInfo& renderInfo) const
+VertexArrayState* Drawable::createVertexArrayStateImplementation(RenderInfo& renderInfo) const
 {
+    OSG_INFO<<"VertexArrayState* Drawable::createVertexArrayStateImplementation(RenderInfo& renderInfo) const "<<this<<std::endl;
     VertexArrayState* vos = new osg::VertexArrayState(renderInfo.getState());
     vos->assignAllDispatchers();
     return vos;

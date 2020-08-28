@@ -23,7 +23,7 @@ void OsgMainApp::loadModels(){
         newModel = _vModelsToLoad[i];
         osg::notify(osg::ALWAYS)<<"Loading: "<<newModel.filename<<std::endl;
 
-        osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(newModel.filename);
+        osg::ref_ptr<osg::Node> loadedModel = osgDB::readRefNodeFile(newModel.filename);
         if (loadedModel == 0) {
             osg::notify(osg::ALWAYS)<<"Model not loaded"<<std::endl;
         } else {
@@ -103,7 +103,9 @@ void OsgMainApp::initOsgWindow(int x,int y,int width,int height){
     osg::notify(osg::ALWAYS)<<"Testing"<<std::endl;
 
     _viewer = new osgViewer::Viewer();
-    _viewer->setUpViewerAsEmbeddedInWindow(x, y, width, height);
+    osgViewer::GraphicsWindowEmbedded* window = _viewer->setUpViewerAsEmbeddedInWindow(x, y, width, height);
+    _viewer->getEventQueue()->setGraphicsContext(window);
+    _viewer->getEventQueue()->syncWindowRectangleWithGraphicsContext();
     _viewer->setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
 
     _root = new osg::Group();

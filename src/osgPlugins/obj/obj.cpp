@@ -225,13 +225,14 @@ bool Model::readMTL(std::istream& fin)
 {
     OSG_INFO<<"Reading MTL file"<<std::endl;
 
+    fin.imbue(std::locale::classic());
+
     const int LINE_SIZE = 4096;
     char line[LINE_SIZE];
     float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
     bool usingDissolve = false;
 
     Material* material = 0;// &(materialMap[""]);
-    std::string filename;
 
     while (fin)
     {
@@ -507,7 +508,7 @@ bool Model::readMTL(std::istream& fin)
                     material->maps.push_back(parseTextureMap(strip(line+7),Material::Map::SPECULAR_EXPONENT));
                 }
                 // modelling tools and convertors variously produce bump, map_bump, and map_Bump so parse them all
-                else if (strncasecmp(line,"bump ",5)==0 || strncasecmp(line,"map_bump ",9)==0)
+                else if (strncasecmp(line,"bump ",5)==0)
                 {
                     material->maps.push_back(parseTextureMap(strip(line+5),Material::Map::BUMP));
                 }
@@ -567,6 +568,8 @@ inline bool isZBrushColorField(char* line)
 bool Model::readOBJ(std::istream& fin, const osgDB::ReaderWriter::Options* options)
 {
     OSG_INFO<<"Reading OBJ file"<<std::endl;
+
+    fin.imbue(std::locale::classic());
 
     const int LINE_SIZE = 4096;
     char line[LINE_SIZE];
@@ -669,28 +672,22 @@ bool Model::readOBJ(std::istream& fin, const osgDB::ReaderWriter::Options* optio
 
                     if (sscanf(ptr, "%d/%d/%d", &vi, &ti, &ni) == 3)
                     {
-                        // OSG_NOTICE<<"   vi="<<vi<<"/ti="<<ti<<"/ni="<<ni<<std::endl;
                         element->vertexIndices.push_back(remapVertexIndex(vi));
-                        element->normalIndices.push_back(remapNormalIndex(ni));
-                        element->texCoordIndices.push_back(remapTexCoordIndex(ti));
+                        if (normals.size() > 0 && remapNormalIndex(ni) < static_cast<int>(normals.size())) element->normalIndices.push_back(remapNormalIndex(ni));
+                        if (texcoords.size() > 0 && remapTexCoordIndex(ti) < static_cast<int>(texcoords.size())) element->texCoordIndices.push_back(remapTexCoordIndex(ti));
                     }
                     else if (sscanf(ptr, "%d//%d", &vi, &ni) == 2)
                     {
-                        // OSG_NOTICE<<"   vi="<<vi<<"//ni="<<ni<<std::endl;
                         element->vertexIndices.push_back(remapVertexIndex(vi));
-                        if (remapNormalIndex(ni) < static_cast<int>(normals.size()))
-                            element->normalIndices.push_back(remapNormalIndex(ni));
+                        if (normals.size() > 0 && remapNormalIndex(ni) < static_cast<int>(normals.size())) element->normalIndices.push_back(remapNormalIndex(ni));
                     }
                     else if (sscanf(ptr, "%d/%d", &vi, &ti) == 2)
                     {
-                        // OSG_NOTICE<<"   vi="<<vi<<"/ti="<<ti<<std::endl;
                         element->vertexIndices.push_back(remapVertexIndex(vi));
-                        if (remapTexCoordIndex(ti) < static_cast<int>(texcoords.size()))
-                            element->texCoordIndices.push_back(remapTexCoordIndex(ti));
+                        if (texcoords.size() > 0 && remapTexCoordIndex(ti) < static_cast<int>(texcoords.size())) element->texCoordIndices.push_back(remapTexCoordIndex(ti));
                     }
                     else if (sscanf(ptr, "%d", &vi) == 1)
                     {
-                        // OSG_NOTICE<<"   vi="<<vi<<std::endl;
                         element->vertexIndices.push_back(remapVertexIndex(vi));
                     }
 

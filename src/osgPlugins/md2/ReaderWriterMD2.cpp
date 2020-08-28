@@ -53,6 +53,11 @@ public:
         return "Quake MD2 Reader";
     }
 
+    virtual ReadResult readObject(const std::string& filename, const osgDB::ReaderWriter::Options* options) const
+    {
+        return readNode(filename, options);
+    }
+
     virtual ReadResult readNode (const std::string& filename, const osgDB::ReaderWriter::Options* options) const;
 };
 
@@ -165,7 +170,7 @@ load_md2 (const char *filename, const osgDB::ReaderWriter::Options* options)
         return NULL;
     }
 
-    mapbase = malloc (st.st_size);
+    mapbase = malloc (st.st_size+1);
     if (!mapbase)
     {
         close (file_fd);
@@ -178,6 +183,9 @@ load_md2 (const char *filename, const osgDB::ReaderWriter::Options* options)
         if (mapbase) free(mapbase);
         return NULL;
     }
+
+    // set the last value in the mapbase to 0 to make sure the buffer is null terminated for later string reads from it
+    ((char*)mapbase)[st.st_size] = 0;
 
     if (g_md2NormalsArray == NULL) {
         g_md2NormalsArray = new osg::Vec3Array;

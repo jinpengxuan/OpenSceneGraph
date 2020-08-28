@@ -1,13 +1,14 @@
-/* -*-c++-*- Present3D - Copyright (C) 1999-2006 Robert Osfield
+/* -*-c++-*- OpenSceneGraph - Copyright (C) 1998-2006 Robert Osfield
  *
- * This software is open source and may be redistributed and/or modified under
- * the terms of the GNU General Public License (GPL) version 2.0.
- * The full license is in LICENSE.txt file included with this distribution,.
+ * This library is open source and may be redistributed and/or modified under
+ * the terms of the OpenSceneGraph Public License (OSGPL) version 0.0 or
+ * (at your option) any later version.  The full license is in LICENSE file
+ * included with this distribution, and on the openscenegraph.org website.
  *
- * This software is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * include LICENSE.txt for more details.
+ * OpenSceneGraph Public License for more details.
 */
 
 #include "ReadShowFile.h"
@@ -256,7 +257,7 @@ osg::ref_ptr<osg::Node> p3d::readShowFiles(osg::ArgumentParser& arguments,const 
                 nodeList.push_back(node);
 
                 // make sure that this presentation isn't cached
-                osgDB::Registry::instance()->removeFromObjectCache( arguments[pos] );
+                osgDB::Registry::instance()->removeFromObjectCache( arguments[pos], local_options.get());
             }
         }
     }

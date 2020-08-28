@@ -71,7 +71,7 @@ struct TriangulizeFunctor
     osg::Vec3Array* _vertexes;
 
     // do nothing
-    void operator ()(const osg::Vec3& v1, const osg::Vec3& v2, const osg::Vec3& v3, bool /*treatVertexDataAsTemporary*/)
+    void operator ()(const osg::Vec3& v1, const osg::Vec3& v2, const osg::Vec3& v3)
     {
         _vertexes->push_back(v1);
         _vertexes->push_back(v2);
@@ -113,6 +113,12 @@ public:
     }
 
     virtual const char* className() const { return "OGR file reader"; }
+
+
+    virtual ReadResult readObject(const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
+    {
+        return readNode(fileName, options);
+    }
 
     virtual ReadResult readNode(const std::string& file, const osgDB::ReaderWriter::Options* options) const
     {
@@ -262,8 +268,6 @@ public:
 
     osg::Geometry* multiPointToDrawable(OGRMultiPoint* mpoint) const
     {
-        osg::Geometry* geom = new osg::Geometry;
-
         osg::Geometry* pointGeom = new osg::Geometry();
         osg::Vec3Array* vertices = new osg::Vec3Array();
 
@@ -286,7 +290,7 @@ public:
 
         if (pointGeom->getVertexArray())
         {
-            OSG_INFO << "osgOgrFeature::multiPointToDrawable " << geom->getVertexArray()->getNumElements() << " vertexes"<< std::endl;
+            OSG_INFO << "osgOgrFeature::multiPointToDrawable " << pointGeom->getVertexArray()->getNumElements() << " vertices"<< std::endl;
         }
 
         return pointGeom;
@@ -340,7 +344,7 @@ public:
 
         if (geom->getVertexArray())
         {
-            OSG_INFO << "osgOgrFeature::multiPolygonToDrawable " << geom->getVertexArray()->getNumElements() << " vertexes"<< std::endl;
+            OSG_INFO << "osgOgrFeature::multiPolygonToDrawable " << geom->getVertexArray()->getNumElements() << " vertices"<< std::endl;
         }
 
         return geom;

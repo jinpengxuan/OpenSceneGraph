@@ -19,6 +19,8 @@ ENDIF()
 
 SET(HEADER_PATH ${OpenSceneGraph_SOURCE_DIR}/include/${LIB_NAME})
 SET(TARGET_H
+    ${HEADER_PATH}/io_utils
+    ${HEADER_PATH}/os_utils
     ${HEADER_PATH}/AlphaFunc
     ${HEADER_PATH}/AnimationPath
     ${HEADER_PATH}/ApplicationUsage
@@ -28,6 +30,7 @@ SET(TARGET_H
     ${HEADER_PATH}/AudioStream
     ${HEADER_PATH}/AutoTransform
     ${HEADER_PATH}/Billboard
+    ${HEADER_PATH}/BindImageTexture
     ${HEADER_PATH}/BlendColor
     ${HEADER_PATH}/BlendEquation
     ${HEADER_PATH}/BlendEquationi
@@ -55,6 +58,7 @@ SET(TARGET_H
     ${HEADER_PATH}/ColorMaski
     ${HEADER_PATH}/ColorMatrix
     ${HEADER_PATH}/ComputeBoundsVisitor
+    ${HEADER_PATH}/DispatchCompute
     ${HEADER_PATH}/ContextData
     ${HEADER_PATH}/ConvexPlanarOccluder
     ${HEADER_PATH}/ConvexPlanarPolygon
@@ -95,7 +99,6 @@ SET(TARGET_H
     ${HEADER_PATH}/ImageSequence
     ${HEADER_PATH}/ImageStream
     ${HEADER_PATH}/ImageUtils
-    ${HEADER_PATH}/io_utils
     ${HEADER_PATH}/KdTree
     ${HEADER_PATH}/Light
     ${HEADER_PATH}/LightModel
@@ -110,6 +113,7 @@ SET(TARGET_H
     ${HEADER_PATH}/Matrix
     ${HEADER_PATH}/Matrixd
     ${HEADER_PATH}/Matrixf
+    ${HEADER_PATH}/MatrixTemplate
     ${HEADER_PATH}/MatrixTransform
     ${HEADER_PATH}/MixinVector
     ${HEADER_PATH}/Multisample
@@ -136,6 +140,7 @@ SET(TARGET_H
     ${HEADER_PATH}/Polytope
     ${HEADER_PATH}/PositionAttitudeTransform
     ${HEADER_PATH}/PrimitiveSet
+    ${HEADER_PATH}/PrimitiveSetIndirect
     ${HEADER_PATH}/PrimitiveRestartIndex
     ${HEADER_PATH}/Program
     ${HEADER_PATH}/Projection
@@ -145,6 +150,7 @@ SET(TARGET_H
     ${HEADER_PATH}/ref_ptr
     ${HEADER_PATH}/RenderInfo
     ${HEADER_PATH}/SampleMaski
+    ${HEADER_PATH}/Sampler
     ${HEADER_PATH}/Scissor
     ${HEADER_PATH}/ScissorIndexed
     ${HEADER_PATH}/ScriptEngine
@@ -165,6 +171,8 @@ SET(TARGET_H
     ${HEADER_PATH}/StencilTwoSided
     ${HEADER_PATH}/Switch
     ${HEADER_PATH}/TemplatePrimitiveFunctor
+    ${HEADER_PATH}/TextureAttribute
+    ${HEADER_PATH}/TemplatePrimitiveIndexFunctor
     ${HEADER_PATH}/TexEnv
     ${HEADER_PATH}/TexEnvCombine
     ${HEADER_PATH}/TexEnvFilter
@@ -188,6 +196,7 @@ SET(TARGET_H
     ${HEADER_PATH}/TriangleLinePointIndexFunctor
     ${HEADER_PATH}/Types
     ${HEADER_PATH}/Uniform
+    ${HEADER_PATH}/UniformBase
     ${HEADER_PATH}/UserDataContainer
     ${HEADER_PATH}/ValueObject
     ${HEADER_PATH}/ValueMap
@@ -234,6 +243,7 @@ SET(TARGET_H
 #    ${OPENSCENEGRAPH_USER_DEFINED_DYNAMIC_OR_STATIC}
 #    ${LIB_PUBLIC_HEADERS}
 SET(TARGET_SRC
+    os_utils.cpp
     AlphaFunc.cpp
     AnimationPath.cpp
     ApplicationUsage.cpp
@@ -243,6 +253,7 @@ SET(TARGET_SRC
     AudioStream.cpp
     AutoTransform.cpp
     Billboard.cpp
+    BindImageTexture.cpp
     BlendColor.cpp
     BlendEquation.cpp
     BlendEquationi.cpp
@@ -265,6 +276,7 @@ SET(TARGET_SRC
     ColorMaski.cpp
     ColorMatrix.cpp
     ComputeBoundsVisitor.cpp
+    DispatchCompute.cpp
     ContextData.cpp
     ConvexPlanarOccluder.cpp
     ConvexPlanarPolygon.cpp
@@ -338,8 +350,10 @@ SET(TARGET_SRC
     PolygonMode.cpp
     PolygonOffset.cpp
     PolygonStipple.cpp
+    Polytope.cpp
     PositionAttitudeTransform.cpp
     PrimitiveSet.cpp
+    PrimitiveSetIndirect.cpp
     PrimitiveRestartIndex.cpp
     Program.cpp
     Projection.cpp
@@ -347,6 +361,7 @@ SET(TARGET_SRC
     Quat.cpp
     Referenced.cpp
     SampleMaski.cpp
+    Sampler.cpp
     Scissor.cpp
     ScissorIndexed.cpp
     ScriptEngine.cpp
@@ -445,5 +460,6 @@ SET(TARGET_EXTERNAL_LIBRARIES
 
 #INCLUDE(ModuleInstall OPTIONAL)
 
-SETUP_LIBRARY(${LIB_NAME})
+SET(COMPONENT_PKGCONFIG_DESCRIPTION "3D scenegraph")
 
+SETUP_LIBRARY(${LIB_NAME})

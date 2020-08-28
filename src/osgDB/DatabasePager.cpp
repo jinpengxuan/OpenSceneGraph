@@ -49,57 +49,6 @@ static osg::ApplicationUsageProxy DatabasePager_e4(osg::ApplicationUsage::ENVIRO
 static osg::ApplicationUsageProxy DatabasePager_e11(osg::ApplicationUsage::ENVIRONMENTAL_VARIABLE,"OSG_MAX_PAGEDLOD <num>","Set the target maximum number of PagedLOD to maintain.");
 static osg::ApplicationUsageProxy DatabasePager_e12(osg::ApplicationUsage::ENVIRONMENTAL_VARIABLE,"OSG_ASSIGN_PBO_TO_IMAGES <ON/OFF>","Set whether PixelBufferObjects should be assigned to Images to aid download to the GPU.");
 
-// Convert function objects that take pointer args into functions that a
-// reference to an osg::ref_ptr. This is quite useful for doing STL
-// operations on lists of ref_ptr. This code assumes that a function
-// with an argument const Foo* should be composed into a function of
-// argument type ref_ptr<Foo>&, not ref_ptr<const Foo>&. Some support
-// for that should be added to make this more general.
-
-namespace
-{
-template <typename U>
-struct PointerTraits
-{
-    typedef class NullType {} PointeeType;
-};
-
-template <typename U>
-struct PointerTraits<U*>
-{
-    typedef U PointeeType;
-};
-
-template <typename U>
-struct PointerTraits<const U*>
-{
-    typedef U PointeeType;
-};
-
-template <typename FuncObj>
-class RefPtrAdapter
-    : public std::unary_function<const osg::ref_ptr<typename PointerTraits<typename FuncObj::argument_type>::PointeeType>,
-                                 typename FuncObj::result_type>
-{
-public:
-    typedef typename PointerTraits<typename FuncObj::argument_type>::PointeeType PointeeType;
-    typedef osg::ref_ptr<PointeeType> RefPtrType;
-    explicit RefPtrAdapter(const FuncObj& funcObj) : _func(funcObj) {}
-    typename FuncObj::result_type operator()(const RefPtrType& refPtr) const
-    {
-        return _func(refPtr.get());
-    }
-protected:
-        FuncObj _func;
-};
-
-template <typename FuncObj>
-RefPtrAdapter<FuncObj> refPtrAdapt(const FuncObj& func)
-{
-    return RefPtrAdapter<FuncObj>(func);
-}
-}
-
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -1110,10 +1059,6 @@ DatabasePager::DatabasePager()
     // test of setting the database threads affinity.
     // _affinity = OpenThreads::Affinity(4,4);
 
-    setUpThreads(
-        osg::DisplaySettings::instance()->getNumOfDatabaseThreadsHint(),
-        osg::DisplaySettings::instance()->getNumOfHttpDatabaseThreadsHint());
-
     str = getenv("OSG_DATABASE_PAGER_PRIORITY");
     if (str)
     {
@@ -1546,8 +1491,6 @@ void DatabasePager::requestNodeFile(const std::string& fileName, osg::NodePath& 
 
         if (!_startThreadCalled)
         {
-            _startThreadCalled = true;
-            _done = false;
             OSG_INFO<<"DatabasePager::startThread()"<<std::endl;
 
             if (_databaseThreads.empty())
@@ -1556,6 +1499,9 @@ void DatabasePager::requestNodeFile(const std::string& fileName, osg::NodePath& 
                     osg::DisplaySettings::instance()->getNumOfDatabaseThreadsHint(),
                     osg::DisplaySettings::instance()->getNumOfHttpDatabaseThreadsHint());
             }
+
+            _startThreadCalled = true;
+            _done = false;
 
             for(DatabaseThreadList::const_iterator dt_itr = _databaseThreads.begin();
                 dt_itr != _databaseThreads.end();
@@ -1700,7 +1646,12 @@ void DatabasePager::addLoadedDataToSceneGraph(const osg::FrameStamp &frameStamp)
                 osg::ProxyNode* proxyNode = dynamic_cast<osg::ProxyNode*>(group.get());
                 if (proxyNode)
                 {
-                    proxyNode->getDatabaseRequest(proxyNode->getNumChildren()) = 0;
+                    for (unsigned int i = 0; i < proxyNode->getNumFileNames(); ++i) {
+                        if (proxyNode->getDatabaseRequest(i) == databaseRequest) {
+                            proxyNode->getDatabaseRequest(i) = 0;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -1715,12 +1666,6 @@ void DatabasePager::addLoadedDataToSceneGraph(const osg::FrameStamp &frameStamp)
             else
             {
                 registerPagedLODs(databaseRequest->_loadedModel.get(), frameNumber);
-            }
-
-            if (databaseRequest->_objectCache.valid() && osgDB::Registry::instance()->getObjectCache())
-            {
-                // insert loaded model into Registry ObjectCache
-                osgDB::Registry::instance()->getObjectCache()->addObjectCache( databaseRequest->_objectCache.get());
             }
 
             // OSG_NOTICE<<"merged subgraph"<<databaseRequest->_fileName<<" after "<<databaseRequest->_numOfRequests<<" requests and time="<<(timeStamp-databaseRequest->_timestampFirstRequest)*1000.0<<std::endl;
@@ -1738,6 +1683,13 @@ void DatabasePager::addLoadedDataToSceneGraph(const osg::FrameStamp &frameStamp)
             OSG_INFO<<"DatabasePager::addLoadedDataToSceneGraph() node in parental chain deleted, discarding subgaph."<<std::endl;
         }
 
+
+        if (databaseRequest->_objectCache.valid() && osgDB::Registry::instance()->getObjectCache())
+        {
+            // insert loaded model into Registry ObjectCache
+            osgDB::Registry::instance()->getObjectCache()->addObjectCache( databaseRequest->_objectCache.get());
+            databaseRequest->_objectCache->clear();
+        }
         // reset the loadedModel pointer
         databaseRequest->_loadedModel = 0;
 

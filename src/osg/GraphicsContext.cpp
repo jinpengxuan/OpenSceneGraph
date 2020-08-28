@@ -18,6 +18,7 @@
 #include <osg/View>
 #include <osg/GLObjects>
 #include <osg/ContextData>
+#include <osg/os_utils>
 
 #include <osg/FrameBufferObject>
 #include <osg/Program>
@@ -153,10 +154,10 @@ std::string GraphicsContext::ScreenIdentifier::displayName() const
 
 void GraphicsContext::ScreenIdentifier::readDISPLAY()
 {
-    const char* ptr = 0;
-    if ((ptr=getenv("DISPLAY")) != 0)
+    std::string str;
+    if (getEnvVar("DISPLAY", str))
     {
-        setScreenIdentifier(ptr);
+        setScreenIdentifier(str);
     }
 }
 
@@ -238,7 +239,7 @@ GraphicsContext::Traits::Traits(DisplaySettings* ds):
             swapBarrier(0),
             useMultiThreadedOpenGLEngine(false),
             useCursor(true),
-            glContextVersion("1.0"),
+            glContextVersion(OSG_GL_CONTEXT_VERSION),
             glContextFlags(0),
             glContextProfileMask(0),
             sharedContext(0),
@@ -437,7 +438,7 @@ bool GraphicsContext::realize()
 
 void GraphicsContext::close(bool callCloseImplementation)
 {
-    OSG_INFO<<"close("<<callCloseImplementation<<")"<<this<<std::endl;
+    OSG_INFO<<"GraphicsContext::close("<<callCloseImplementation<<")"<<this<<std::endl;
 
     // switch off the graphics thread...
     setGraphicsThread(0);
@@ -525,7 +526,7 @@ void GraphicsContext::close(bool callCloseImplementation)
 
 bool GraphicsContext::makeCurrent()
 {
-    _threadOfLastMakeCurrent = OpenThreads::Thread::CurrentThread();
+    _threadOfLastMakeCurrent = OpenThreads::Thread::CurrentThreadId();
 
     bool result = makeCurrentImplementation();
 
@@ -545,7 +546,7 @@ bool GraphicsContext::makeContextCurrent(GraphicsContext* readContext)
 
     if (result)
     {
-        _threadOfLastMakeCurrent = OpenThreads::Thread::CurrentThread();
+        _threadOfLastMakeCurrent = OpenThreads::Thread::CurrentThreadId();
 
         // initialize extension process, not only initializes on first
         // call, will be a non-op on subsequent calls.
@@ -559,7 +560,7 @@ bool GraphicsContext::releaseContext()
 {
     bool result = releaseContextImplementation();
 
-    _threadOfLastMakeCurrent = (OpenThreads::Thread*)(-1);
+    _threadOfLastMakeCurrent = 0;
 
     return result;
 }
@@ -572,7 +573,7 @@ void GraphicsContext::swapBuffers()
         clear();
     }
     else if (_graphicsThread.valid() &&
-             _threadOfLastMakeCurrent == _graphicsThread.get())
+             _threadOfLastMakeCurrent == _graphicsThread->getThreadId())
     {
         _graphicsThread->add(new SwapBuffersOperation);
     }

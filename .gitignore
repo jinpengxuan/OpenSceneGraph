@@ -27,7 +27,7 @@ CMakeFiles
 CMakeScripts
 Makefile
 cmake_install.cmake
-install_manifest.txt
+install_manifest*.txt
 
 
 # Compiled Object files
@@ -59,6 +59,10 @@ install_manifest.txt
 *.out
 *.app
 
+# Automatically generated Package files
+packaging/cmake/*
+configure/*
+
 # Platform Specifics - auto generated files
 PlatformSpecifics/Windows/*.rc
 
@@ -79,8 +83,24 @@ PlatformSpecifics/Windows/*.rc
 *.sdf
 *.opensdf
 
+# Visual Studio - Cache/Options Directory
+.vs/
+.vscode/*
+
 #osx xcode
 DerivedData/
 *.DS_Store
 *.build
 *.xcodeproj
+
+#CPACK related files
+CPackConfig-*.cmake
+_CPack_Packages/
+
+#packages
+*.tar.gz
+*.zip
+
+#individual build files
+config.yaml
+_build

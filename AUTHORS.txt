@@ -1,18 +1,19 @@
-OpenSceneGraph Library 3.5.6
+OpenSceneGraph Library 3.7.0
 
-566 Contributors:
+568 Contributors:
 
 Firstname Surname
 -----------------
 Robert Osfield
+Don Burns
 Stephan Huber
 Paul Martz
+Laurens Voerman
 Farshid Lashkari
 Mathias Fröhlich
 Marco Jez
 Wang Rui
 Jean-Sébastien Guay
-Laurens Voerman
 Ulrich Hertlein
 Mike Weiblen
 Sukender
@@ -48,6 +49,7 @@ Magnus Kessler
 David Fries
 Tom Jolley
 Paul Melis
+Jordi Torres
 Luc Frauciel
 Aurelien Albert
 Torben Dannhauer
@@ -94,8 +96,8 @@ Fabien Lavignotte
 Thomas Hogarth
 Riccardo Corsi
 Melchior Franz
-Jordi Torres
 Johannes Baeuerle
+Ravi Mathur
 Neil Hughes
 Martin Beckett
 Marc Helbling
@@ -110,7 +112,7 @@ Yefei He
 Sondra Iverson
 Simon Julier
 Rune Schmidt Jensen
-Ravi Mathur
+Ralf Habacker
 Rainer Oder
 Nico Kruithof
 Martin Aumueller
@@ -126,7 +128,7 @@ Alexander Sinditskiy
 Vladimir Chebaev
 Thibault Genessay
 Sasa Bistrovic
-Ralf Habacker
+Raymond de Vries
 Neil Groves
 Mikhail Izmestev
 Markus Trenkwalder
@@ -226,7 +228,6 @@ Fabio Mierlo
 Doug McCorkle
 Donald Cipperly
 Don Leich
-Don Burns
 Dietmar Funck
 Colin Cochran
 Christian Ruzicka
@@ -254,7 +255,6 @@ Stephan Eilemann
 Stanislav Blinov
 Sergey Polischuk
 Roni Zanolli
-Raymond de Vries
 Ralf Kern
 Piotr Gwiazdowski
 Pierre Haritchabalet
@@ -362,6 +362,7 @@ Shuxing Xiao
 Shane Arnott
 Sergey Kurdakov
 Sebastien Kuntz
+Sandro Mani
 Ruth Lang
 Ruben The
 Ruben Smelik
@@ -490,7 +491,6 @@ Hartmut Seichter
 Gunter Huber
 Gregory Jaegy
 Graeme Harkness
-Github It
 Gian Lorenzetto
 George Papagiannakis
 Geoff Thu
@@ -538,6 +538,7 @@ Christian Noon
 Christian Kaser
 Christian Ehrlicher
 Chris McGlone
+Chris Djali
 Carlos Garcea
 Bryce Eldridge
 Bruno Herbelin
@@ -553,6 +554,7 @@ Bart Gallet
 Axel Volley
 Arjun Ramamurthy
 Anthousis Andreadis
+Anna Sokol
 Andy Preece
 Andrew Reyonolds
 Andreas Roth

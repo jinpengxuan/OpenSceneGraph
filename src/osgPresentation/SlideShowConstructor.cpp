@@ -31,6 +31,7 @@
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Notify>
 #include <osg/io_utils>
+#include <osg/os_utils>
 #include <osg/ValueObject>
 
 #include <osgUtil/TransformCallback>
@@ -484,7 +485,8 @@ void SlideShowConstructor::addLayer(bool inheritPreviousLayers, bool defineAsBas
             bool useTextureRectangle = true;
             float s = useTextureRectangle ? image->s() : 1.0;
             float t = useTextureRectangle ? image->t() : 1.0;
-            osg::Geometry* backgroundQuad = osg::createTexturedQuadGeometry(_slideOrigin,
+            osg::Vec3 backgroundShift(0.0f, _slideWidth*0.0001f, 0.0f);
+            osg::Geometry* backgroundQuad = osg::createTexturedQuadGeometry(_slideOrigin+backgroundShift,
                                                             osg::Vec3(_slideWidth,0.0f,0.0f),
                                                             osg::Vec3(0.0f,0.0f,_slideHeight),
                                                             s, t);
@@ -1000,7 +1002,7 @@ osg::Geometry* SlideShowConstructor::createTexturedQuadGeometry(const osg::Vec3&
     #endif
 #endif
 
-    // pass back info on wether texture 2D is used.
+    // pass back info on whether texture 2D is used.
     usedTextureRectangle = useTextureRectangle;
 
     if (!texture)
@@ -1051,7 +1053,7 @@ osg::Geometry* SlideShowConstructor::createTexturedQuadGeometry(const osg::Vec3&
 
         OSG_INFO<<"Reading video "<<imageStream->getFileName()<<std::endl;
 #if USE_CLIENT_STORAGE_HINT
-        // make sure that OSX uses the client storage extension to accelerate peformance where possible.
+        // make sure that OSX uses the client storage extension to accelerate performance where possible.
         if (texture) texture->setClientStorageHint(true);
 #endif
     }
@@ -1390,7 +1392,7 @@ void SlideShowConstructor::addImage(const std::string& filename, const PositionD
         subgraph = picture;
     }
 
-    // attach any meterial animation.
+    // attach any material animation.
     if (positionData.requiresMaterialAnimation())
         subgraph = attachMaterialAnimation(subgraph,positionData);
 
@@ -1636,7 +1638,7 @@ void SlideShowConstructor::addStereoImagePair(const std::string& filenameLeft, c
         }
     }
 
-    // attach any meterial animation.
+    // attach any material animation.
     if (positionData.requiresMaterialAnimation())
         subgraph = attachMaterialAnimation(subgraph,positionData)->asGroup();
 
@@ -1748,7 +1750,7 @@ void SlideShowConstructor::addGraph(const std::string& contents, const PositionD
 
     std::stringstream command;
     command<<"dot -Tsvg "<<dotFileName<<" -o "<<tmpSvgFileName;
-    int result = system(command.str().c_str());
+    int result = osg_system(command.str().c_str());
     if (result==0)
     {
         osg::ref_ptr<osgDB::Options> previousOptions = _options;
@@ -1881,7 +1883,7 @@ osg::ref_ptr<osg::Image> SlideShowConstructor::addInteractiveImage(const std::st
         subgraph = picture;
     }
 
-    // attach any meterial animation.
+    // attach any material animation.
     if (positionData.requiresMaterialAnimation())
         subgraph = attachMaterialAnimation(subgraph,positionData);
 
@@ -2306,7 +2308,7 @@ void SlideShowConstructor::addModel(osg::Node* subgraph, const PositionData& pos
 
 
 
-    // attach any meterial animation.
+    // attach any material animation.
     if (positionData.requiresMaterialAnimation())
         subgraph = attachMaterialAnimation(subgraph,positionData);
 

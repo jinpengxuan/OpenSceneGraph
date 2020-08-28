@@ -55,12 +55,14 @@ class ZipArchive : public osgDB::Archive
         virtual osgDB::ReaderWriter::ReadResult readHeightField(const std::string& /*fileName*/,const osgDB::ReaderWriter::Options* =NULL) const;
         virtual osgDB::ReaderWriter::ReadResult readNode(const std::string& /*fileName*/, const osgDB::ReaderWriter::Options* =NULL) const;
         virtual osgDB::ReaderWriter::ReadResult readShader(const std::string& /*fileName*/, const osgDB::ReaderWriter::Options* =NULL) const;
+        virtual osgDB::ReaderWriter::ReadResult readScript(const std::string& /*fileName*/, const osgDB::ReaderWriter::Options* =NULL) const;
 
         virtual osgDB::ReaderWriter::WriteResult writeObject(const osg::Object& /*obj*/, const std::string& /*fileName*/,const osgDB::ReaderWriter::Options* =NULL) const;
         virtual osgDB::ReaderWriter::WriteResult writeImage(const osg::Image& /*image*/, const std::string& /*fileName*/,const osgDB::ReaderWriter::Options* =NULL) const;
         virtual osgDB::ReaderWriter::WriteResult writeHeightField(const osg::HeightField& /*heightField*/, const std::string& /*fileName*/,const osgDB::ReaderWriter::Options* =NULL) const;
         virtual osgDB::ReaderWriter::WriteResult writeNode(const osg::Node& /*node*/, const std::string& /*fileName*/,const osgDB::ReaderWriter::Options* =NULL) const;
         virtual osgDB::ReaderWriter::WriteResult writeShader(const osg::Shader& /*shader*/, const std::string& /*fileName*/,const osgDB::ReaderWriter::Options* =NULL) const;
+        virtual osgDB::ReaderWriter::WriteResult writeScript(const osg::Script& /*script*/, const std::string& /*fileName*/,const osgDB::ReaderWriter::Options* =NULL) const;
 
     protected:
 
@@ -90,7 +92,7 @@ class ZipArchive : public osgDB::Archive
             HZIP _zipHandle;
         };
 
-        typedef std::map<OpenThreads::Thread*, PerThreadData> PerThreadDataMap;
+        typedef std::map<size_t, PerThreadData> PerThreadDataMap;
         PerThreadDataMap _perThreadData;
 
         const PerThreadData& getData() const;

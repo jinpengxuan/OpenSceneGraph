@@ -8,14 +8,10 @@
 # correspond to the ./configure --prefix=$GTA_DIR
 # used in building libgta.
 
-INCLUDE(FindPkgConfig OPTIONAL)
+find_package(PkgConfig QUIET)
 
 IF(PKG_CONFIG_FOUND)
-
-    INCLUDE(FindPkgConfig)
-
     PKG_CHECK_MODULES(GTA gta)
-
 ENDIF(PKG_CONFIG_FOUND)
 
 IF(NOT GTA_FOUND)
@@ -33,7 +29,7 @@ IF(NOT GTA_FOUND)
         /usr/freeware/include
     )
     
-    FIND_LIBRARY(GTA_LIBRARY
+    FIND_LIBRARY(GTA_LIBRARIES
         NAMES gta libgta
         PATHS
         $ENV{GTA_DIR}/lib
@@ -50,8 +46,8 @@ IF(NOT GTA_FOUND)
     )
     
     SET(GTA_FOUND "NO")
-    IF(GTA_LIBRARY AND GTA_INCLUDE_DIRS)
+    IF(GTA_LIBRARIES AND GTA_INCLUDE_DIRS)
         SET(GTA_FOUND "YES")
-    ENDIF(GTA_LIBRARY AND GTA_INCLUDE_DIRS)
+    ENDIF(GTA_LIBRARIES AND GTA_INCLUDE_DIRS)
 
 ENDIF(NOT GTA_FOUND)

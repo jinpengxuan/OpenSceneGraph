@@ -1,13 +1,14 @@
-/* -*-c++-*- Present3D - Copyright (C) 1999-2006 Robert Osfield
+/* -*-c++-*- OpenSceneGraph - Copyright (C) 1998-2018 Robert Osfield
  *
- * This software is open source and may be redistributed and/or modified under
- * the terms of the GNU General Public License (GPL) version 2.0.
- * The full license is in LICENSE.txt file included with this distribution,.
+ * This library is open source and may be redistributed and/or modified under
+ * the terms of the OpenSceneGraph Public License (OSGPL) version 0.0 or
+ * (at your option) any later version.  The full license is in LICENSE file
+ * included with this distribution, and on the openscenegraph.org website.
  *
- * This software is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * include LICENSE.txt for more details.
+ * OpenSceneGraph Public License for more details.
 */
 
 #include <osgPresentation/PickEventHandler>
@@ -17,6 +18,7 @@
 #include <osg/Notify>
 #include <osgDB/FileUtils>
 #include <osg/io_utils>
+#include <osg/os_utils>
 
 #include <stdlib.h>
 
@@ -230,7 +232,7 @@ void PickEventHandler::doOperation()
 
             bool commandRunsInBackground = (_command.find("&")!=std::string::npos);
 
-            int result = system(_command.c_str());
+            int result = osg_system(_command.c_str());
 
             OSG_INFO<<"system("<<_command<<") result "<<result<<std::endl;
 
@@ -251,7 +253,7 @@ void PickEventHandler::doOperation()
         }
         case(osgPresentation::EVENT):
         {
-            OSG_NOTICE<<"Event "<<_keyPos._key<<" "<<_keyPos._x<<" "<<_keyPos._y<<std::endl;
+            OSG_INFO<<"Event "<<_keyPos._key<<" "<<_keyPos._x<<" "<<_keyPos._y<<std::endl;
             if (SlideEventHandler::instance()) SlideEventHandler::instance()->dispatchEvent(_keyPos);
             break;
         }

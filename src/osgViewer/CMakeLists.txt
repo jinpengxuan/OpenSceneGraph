@@ -5,6 +5,11 @@ ELSE()
     ADD_DEFINITIONS(-DOSG_LIBRARY_STATIC)
 ENDIF()
 
+IF(OSG_USE_EGL)
+    ADD_DEFINITIONS(-DOSG_USE_EGL)
+ENDIF()
+
+
 SET(LIB_NAME osgViewer)
 
 
@@ -74,12 +79,21 @@ IF(WIN32 AND NOT ANDROID)
         ${HEADER_PATH}/api/Win32/GraphicsHandleWin32
         ${HEADER_PATH}/api/Win32/GraphicsWindowWin32
         ${HEADER_PATH}/api/Win32/PixelBufferWin32
+        ${HEADER_PATH}/api/Win32/Win32GWUtils
     )
-
-    SET(LIB_COMMON_FILES ${LIB_COMMON_FILES}
-        GraphicsWindowWin32.cpp
-        PixelBufferWin32.cpp
-    )
+    IF(OSG_USE_EGL)
+        SET(LIB_COMMON_FILES ${LIB_COMMON_FILES}
+            GraphicsWindowWin32.cpp
+            PixelBufferWin32EGL.cpp
+			Win32GWUtils.cpp
+        )
+    ELSE()
+        SET(LIB_COMMON_FILES ${LIB_COMMON_FILES}
+            GraphicsWindowWin32.cpp
+            PixelBufferWin32.cpp
+			Win32GWUtils.cpp
+        )
+    ENDIF()
 ELSE()
     IF(ANDROID)
       SET(OSG_WINDOWING_SYSTEM "None" CACHE STRING "None Windowing system type for graphics window creation.")
@@ -171,16 +185,25 @@ ELSE()
 
     ELSEIF(${OSG_WINDOWING_SYSTEM} STREQUAL "X11")
         # X11 for everybody else
-        INCLUDE(FindPkgConfig OPTIONAL)
+        find_package(PkgConfig QUIET)
         IF(PKG_CONFIG_FOUND)
+
             PKG_CHECK_MODULES(XRANDR xrandr)
             IF(XRANDR_FOUND)
                 OPTION(OSGVIEWER_USE_XRANDR "Set to ON to enable Xrandr support for GraphicsWindowX11." ON)
             ELSE()
                 SET(OSGVIEWER_USE_XRANDR OFF)
             ENDIF()
+
+            PKG_CHECK_MODULES(XINERAMA xinerama)
+            IF(XINERAMA_FOUND)
+                SET(OSGVIEWER_USE_XINERAMA ON)
+            ELSE()
+                SET(OSGVIEWER_USE_XINERAMA OFF)
+            ENDIF()
         ELSE()
             SET(OSGVIEWER_USE_XRANDR OFF)
+            SET(OSGVIEWER_USE_XINERAMA OFF)
         ENDIF()
 
         SET(TARGET_H_NO_MODULE_INSTALL
@@ -205,9 +228,16 @@ ELSE()
             ENDIF()
         ENDIF()
 
+        IF(OSGVIEWER_USE_XINERAMA)
+            ADD_DEFINITIONS(-DOSGVIEWER_USE_XINERAMA)
+            SET(LIB_PRIVATE_HEADERS ${LIB_PRIVATE_HEADERS} ${XINERAMA_INCLUDE_DIRS} )
+            SET(LIB_EXTRA_LIBS ${X11_Xinerama_LIB} ${LIB_EXTRA_LIBS})
+        ENDIF()
+
+        # X11 on Apple requires X11 library plus OpenGL linking hack on Leopard
         IF(APPLE)
             # hack for finding the iphone opengl es lib
-            IF(OSG_BUILD_PLATFORM_IPHONE OR OSG_BUILD_PLATFORM_IPHONE_SIMULATOR)
+            IF(OSG_BUILD_PLATFORM_IPHONE)
               SET(OPENGL_INCLUDE_DIR ${IPHONE_SDKROOT}/System/Library/Frameworks)
               SET(OPENGL_LIBRARIES ${IPHONE_SDKROOT}/System/Library/Frameworks/OpenGLES)
             ELSE()
@@ -244,6 +274,8 @@ SET(TARGET_EXTERNAL_LIBRARIES ${LIB_EXTRA_LIBS})
 IF(MINGW OR CYGWIN)
     SET(TARGET_EXTERNAL_LIBRARIES ${TARGET_EXTERNAL_LIBRARIES} gdi32 )
 ENDIF()
+
+SET(COMPONENT_PKGCONFIG_DESCRIPTION "Windowing system setup, thread scene manager library for Openscenegraph")
 
 SETUP_LIBRARY(${LIB_NAME})
 

@@ -17,49 +17,28 @@
 //The only things we need to create a new StateSet are texture and materials. So we store that in a pair.
 //We Don't store directly in stateSet because getOrCreateStateSet function set some parameters.
 
+struct TextureDetails : public osg::Referenced
+{
+    TextureDetails();
+
+    bool valid() const { return texture.valid(); }
+
+    bool transparent() const;
+
+    void assignTextureIfRequired(osg::StateSet* stateSet, unsigned int unit);
+    void assignTexMatIfRequired(osg::StateSet* stateSet, unsigned int unit);
+
+    std::string                     channel;
+    osg::ref_ptr<osg::Texture2D>    texture;
+    double                          factor;
+    osg::Vec2d                      scale;
+};
+
 struct StateSetContent
 {
     StateSetContent()
-        : diffuseFactor(1.0),
-        reflectionFactor(1.0),
-        emissiveFactor(1.0),
-        ambientFactor(1.0)
     {
     }
-
-    osg::ref_ptr<osg::Material> material;
-
-    // textures objects...
-    osg::ref_ptr<osg::Texture2D> diffuseTexture;
-    osg::ref_ptr<osg::Texture2D> opacityTexture;
-    osg::ref_ptr<osg::Texture2D> reflectionTexture;
-    osg::ref_ptr<osg::Texture2D> emissiveTexture;
-    osg::ref_ptr<osg::Texture2D> ambientTexture;
-    // more textures types here...
-
-    // textures maps channels names...
-    std::string diffuseChannel;
-    std::string opacityChannel;
-    std::string reflectionChannel;
-    std::string emissiveChannel;
-    std::string ambientChannel;
-    // more channels names here...
-
-    // combining factors...
-    double diffuseFactor;
-    double reflectionFactor;
-    double emissiveFactor;
-    double ambientFactor;
-    // more combining factors here...
-
-    double diffuseScaleU;
-    double diffuseScaleV;
-    double opacityScaleU;
-    double opacityScaleV;
-    double emissiveScaleU;
-    double emissiveScaleV;
-    double ambientScaleU;
-    double ambientScaleV;
 
     // texture units (eventually used for each texture map)...
     enum TextureUnit
@@ -68,9 +47,25 @@ struct StateSetContent
         OPACITY_TEXTURE_UNIT,
         REFLECTION_TEXTURE_UNIT,
         EMISSIVE_TEXTURE_UNIT,
-        AMBIENT_TEXTURE_UNIT
+        AMBIENT_TEXTURE_UNIT,
+        NORMAL_TEXTURE_UNIT,
+        SPECULAR_TEXTURE_UNIT,
+        SHININESS_TEXTURE_UNIT
         // more texture units here...
     };
+
+
+
+    osg::ref_ptr<osg::Material> material;
+
+    osg::ref_ptr<TextureDetails> diffuse;
+    osg::ref_ptr<TextureDetails> opacity;
+    osg::ref_ptr<TextureDetails> reflection;
+    osg::ref_ptr<TextureDetails> emissive;
+    osg::ref_ptr<TextureDetails> ambient;
+    osg::ref_ptr<TextureDetails> normalMap;
+    osg::ref_ptr<TextureDetails> specular;
+    osg::ref_ptr<TextureDetails> shininess;
 };
 
 //We use the pointers set by the importer to not duplicate materials and textures.
@@ -92,10 +87,15 @@ public:
         _lightmapTextures(lightmapTextures){}
 
     void checkInvertTransparency();
+
 private:
     //Convert a texture fbx to an osg texture.
-    osg::ref_ptr<osg::Texture2D>
-    fbxTextureToOsgTexture(const FbxFileTexture* pOsgTex);
+    osg::ref_ptr<osg::Texture2D> fbxTextureToOsgTexture(const FbxFileTexture* pOsgTex);
+
+    FbxFileTexture* selectFbxFileTexture(const FbxProperty& lProperty);
+
+    TextureDetails* selectTextureDetails(const FbxProperty& lProperty);
+
     FbxMaterialMap       _fbxMaterialMap;
     ImageMap              _imageMap;
     const osgDB::Options* _options;

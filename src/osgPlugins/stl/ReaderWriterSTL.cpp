@@ -32,7 +32,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 
-#include <osgUtil/TriStripVisitor>
+#include <osgUtil/MeshOptimizers>
 #include <osgUtil/SmoothingVisitor>
 #include <osg/TriangleFunctor>
 
@@ -45,6 +45,10 @@
 
 #include <string.h>
 #include <memory>
+#include <iomanip>
+
+#include <iostream>
+#include <iomanip>
 
 struct STLOptionsStruct {
     bool smooth;
@@ -109,11 +113,16 @@ public:
         return "STL Reader";
     }
 
+    virtual ReadResult readObject(const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
+    {
+        return readNode(fileName, options); 
+    }
+
     virtual ReadResult readNode(const std::string& fileName, const osgDB::ReaderWriter::Options*) const;
     virtual WriteResult writeNode(const osg::Node& node, const std::string& fileName, const Options* = NULL) const;
 
 private:
-    class ReaderObject
+    class ReaderObject : public osg::Referenced
     {
     public:
         ReaderObject(bool noTriStripPolygons, bool generateNormals = true):
@@ -182,8 +191,7 @@ private:
             geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, 0, _numFacets * 3));
 
             if(!_noTriStripPolygons) {
-                osgUtil::TriStripVisitor tristripper;
-                tristripper.stripify(*geom);
+                osgUtil::optimizeMesh(geom.get());
             }
 
             return geom;
@@ -294,6 +302,7 @@ private:
             else
                 *m_f << "solid " << node.getName() << std::endl;
 
+            *m_f << std::fixed << std::setprecision(7);
             for (unsigned int i = 0; i < node.getNumDrawables(); ++i)
             {
                 osg::TriangleFunctor<PushPoints> tf;
@@ -347,7 +356,7 @@ private:
             osg::Matrix m_mat;
             bool m_dontSaveNormals;
 
-            inline void operator () (const osg::Vec3& _v1, const osg::Vec3& _v2, const osg::Vec3& _v3, bool /*treatVertexDataAsTemporary*/)
+            inline void operator () (const osg::Vec3& _v1, const osg::Vec3& _v2, const osg::Vec3& _v3)
             {
                 osg::Vec3 v1 = _v1 * m_mat;
                 osg::Vec3 v2 = _v2 * m_mat;
@@ -400,12 +409,12 @@ const float StlColorDepth = float(StlColorSize); // 2^5 - 1
 // Magics files have a header with a "COLOR=" field giving the color of the whole model
 bool fileComesFromMagics(FILE *fp, osg::Vec4& magicsColor)
 {
-    char header[80];
+    std::string header(80, 0);
     const float magicsColorDepth = 255.f;
 
     ::rewind(fp);
 
-    if (fread((void*) &header, sizeof(header), 1, fp) != 1)
+    if (fread((void*) &(*header.begin()), header.size(), 1, fp) != 1)
         return false;
 
     if (::fseek(fp, sizeof_StlHeader, SEEK_SET)!=0)
@@ -414,8 +423,7 @@ bool fileComesFromMagics(FILE *fp, osg::Vec4& magicsColor)
     }
 
     std::string magicsColorPattern ("COLOR=");
-    std::string headerStr = std::string(header);
-    if(size_t colorFieldPos = headerStr.find(magicsColorPattern) != std::string::npos)
+    if(size_t colorFieldPos = header.find(magicsColorPattern) != std::string::npos)
     {
         int colorIndex = colorFieldPos + magicsColorPattern.size() - 1;
         float r = (uint8_t)header[colorIndex] / magicsColorDepth;
@@ -528,7 +536,7 @@ osgDB::ReaderWriter::ReadResult ReaderWriterSTL::readNode(const std::string& fil
     else
         readerObject = new AsciiReaderObject(localOptions.noTriStripPolygons);
 
-    std::auto_ptr<ReaderObject> readerPtr(readerObject);
+    osg::ref_ptr<ReaderObject> readerPtr(readerObject);
 
     while (1)
     {
@@ -743,7 +751,7 @@ ReaderWriterSTL::ReaderObject::ReadResult ReaderWriterSTL::BinaryReaderObject::r
          *
          * The magics files may use whether per-face or per-object colors
          * for a given face, according to the value of the last bit (0 = per-face, 1 = per-object)
-         * Moreover, magics uses RGB instead of BGR (as the other softwares)
+         * Moreover, magics uses RGB instead of BGR (as the other software)
          */
         if (!_color.valid())
         {

@@ -47,9 +47,9 @@ TextBase::TextBase():
     _textBBMargin(0.0f),
     _textBBColor(0.0, 0.0, 0.0, 0.5),
     _kerningType(KERNING_DEFAULT),
-    _lineCount(0)
+    _lineCount(0),
+    _glyphNormalized(false)
 {
-    setStateSet(Font::getDefaultFont()->getStateSet());
     setUseDisplayList(false);
     setSupportsDisplayList(false);
 
@@ -78,13 +78,19 @@ TextBase::TextBase(const TextBase& textBase,const osg::CopyOp& copyop):
     _textBBMargin(textBase._textBBMargin),
     _textBBColor(textBase._textBBColor),
     _kerningType(textBase._kerningType),
-    _lineCount(textBase._lineCount)
+    _lineCount(textBase._lineCount),
+    _glyphNormalized(textBase._glyphNormalized)
 {
     initArraysAndBuffers();
 }
 
 TextBase::~TextBase()
 {
+}
+
+osg::StateSet* TextBase::createStateSet()
+{
+    return 0;
 }
 
 void TextBase::initArraysAndBuffers()
@@ -103,7 +109,7 @@ void TextBase::initArraysAndBuffers()
     _texcoords->setBufferObject(_vbo.get());
 }
 
-osg::VertexArrayState* TextBase::createVertexArrayState(osg::RenderInfo& renderInfo) const
+osg::VertexArrayState* TextBase::createVertexArrayStateImplementation(osg::RenderInfo& renderInfo) const
 {
     State& state = *renderInfo.getState();
 
@@ -133,7 +139,34 @@ osg::VertexArrayState* TextBase::createVertexArrayState(osg::RenderInfo& renderI
 
 void TextBase::compileGLObjects(osg::RenderInfo& renderInfo) const
 {
-    Drawable::compileGLObjects(renderInfo);
+    State& state = *renderInfo.getState();
+    if (renderInfo.getState()->useVertexBufferObject(_supportsVertexBufferObjects && _useVertexBufferObjects))
+    {
+        unsigned int contextID = state.getContextID();
+        GLExtensions* extensions = state.get<GLExtensions>();
+        if (state.useVertexArrayObject(_useVertexArrayObject))
+        {
+            VertexArrayState* vas = 0;
+
+            _vertexArrayStateList[contextID] = vas = createVertexArrayState(renderInfo);
+
+            State::SetCurrentVertexArrayStateProxy setVASProxy(state, vas);
+
+            state.bindVertexArrayObject(vas);
+
+            drawImplementation(renderInfo);
+
+            state.unbindVertexArrayObject();
+        }
+        else
+        {
+            drawImplementation(renderInfo);
+        }
+
+        // unbind the BufferObjects
+        extensions->glBindBuffer(GL_ARRAY_BUFFER_ARB,0);
+        extensions->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB,0);
+    }
 }
 
 void TextBase::resizeGLObjectBuffers(unsigned int maxSize)
@@ -180,12 +213,18 @@ void TextBase::setColor(const osg::Vec4& color)
     _color = color;
 }
 
+void TextBase::assignStateSet()
+{
+    setStateSet(createStateSet());
+}
 
 void TextBase::setFont(osg::ref_ptr<Font> font)
 {
     if (_font==font) return;
 
     _font = font;
+
+    assignStateSet();
 
     computeGlyphRepresentation();
 }
@@ -201,6 +240,9 @@ void TextBase::setFontResolution(unsigned int width, unsigned int height)
     if (_fontSize==size) return;
 
     _fontSize = size;
+
+    assignStateSet();
+
     computeGlyphRepresentation();
 }
 
@@ -283,8 +325,8 @@ void TextBase::setAlignment(AlignmentType alignment)
     if (_alignment==alignment) return;
 
     _alignment = alignment;
-    computePositions();
-    // computeGlyphRepresentation();
+    //computePositions();
+    computeGlyphRepresentation();
 }
 
 void TextBase::setAxisAlignment(AxisAlignment axis)
@@ -368,7 +410,8 @@ void TextBase::setBoundingBoxMargin(float margin)
         return;
 
     _textBBMargin = margin;
-    computeGlyphRepresentation();
+
+    computePositions();
 }
 
 
@@ -379,16 +422,16 @@ osg::BoundingBox TextBase::computeBoundingBox() const
     return bbox;
 #endif
 
-    if (_textBB.valid())
+    if (_textBBWithMargin.valid())
     {
-        bbox.expandBy(_textBB.corner(0)*_matrix);
-        bbox.expandBy(_textBB.corner(1)*_matrix);
-        bbox.expandBy(_textBB.corner(2)*_matrix);
-        bbox.expandBy(_textBB.corner(3)*_matrix);
-        bbox.expandBy(_textBB.corner(4)*_matrix);
-        bbox.expandBy(_textBB.corner(5)*_matrix);
-        bbox.expandBy(_textBB.corner(6)*_matrix);
-        bbox.expandBy(_textBB.corner(7)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(0)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(1)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(2)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(3)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(4)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(5)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(6)*_matrix);
+        bbox.expandBy(_textBBWithMargin.corner(7)*_matrix);
 
 #if 0
         if (!bbox.valid())
@@ -429,6 +472,8 @@ osg::BoundingBox TextBase::computeBoundingBox() const
 
 void TextBase::computePositions()
 {
+    _textBBWithMargin = _textBB;
+
     computePositionsImplementation();
 
     osg::Matrix matrix;
@@ -453,11 +498,11 @@ void TextBase::computePositionsImplementation()
         case RIGHT_CENTER:  _offset.set(_textBB.xMax(),(_textBB.yMax()+_textBB.yMin())*0.5f,_textBB.zMin()); break;
         case RIGHT_BOTTOM:  _offset.set(_textBB.xMax(),_textBB.yMin(),_textBB.zMin()); break;
 
-        case LEFT_BASE_LINE:  _offset.set(0.0f,0.0f,0.0f); break;
+        case LEFT_BASE_LINE:  _offset.set(_textBB.xMin(),0.0f,0.0f); break;
         case CENTER_BASE_LINE:  _offset.set((_textBB.xMax()+_textBB.xMin())*0.5f,0.0f,0.0f); break;
         case RIGHT_BASE_LINE:  _offset.set(_textBB.xMax(),0.0f,0.0f); break;
 
-        case LEFT_BOTTOM_BASE_LINE:  _offset.set(0.0f,-_characterHeight*(1.0 + _lineSpacing)*(_lineCount-1),0.0f); break;
+        case LEFT_BOTTOM_BASE_LINE:  _offset.set(_textBB.xMin(),-_characterHeight*(1.0 + _lineSpacing)*(_lineCount-1),0.0f); break;
         case CENTER_BOTTOM_BASE_LINE:  _offset.set((_textBB.xMax()+_textBB.xMin())*0.5f,-_characterHeight*(1.0 + _lineSpacing)*(_lineCount-1),0.0f); break;
         case RIGHT_BOTTOM_BASE_LINE:  _offset.set(_textBB.xMax(),-_characterHeight*(1.0 + _lineSpacing)*(_lineCount-1),0.0f); break;
     }
@@ -472,86 +517,66 @@ bool TextBase::computeMatrix(osg::Matrix& matrix, osg::State* state) const
         osg::Matrix modelview = state->getModelViewMatrix();
         osg::Matrix projection = state->getProjectionMatrix();
 
-        matrix.makeTranslate(-_offset);
+        osg::Matrix temp_matrix(modelview);
+        temp_matrix.setTrans(0.0,0.0,0.0);
 
         osg::Matrix rotate_matrix;
-        if (_autoRotateToScreen)
-        {
-            osg::Matrix temp_matrix(modelview);
-            temp_matrix.setTrans(0.0f,0.0f,0.0f);
+        rotate_matrix.invert(temp_matrix);
 
-            rotate_matrix.invert(temp_matrix);
-        }
-
+        matrix.makeTranslate(-_offset);
         matrix.postMultRotate(_rotation);
 
         if (_characterSizeMode!=OBJECT_COORDS)
         {
-            osg::Matrix M(rotate_matrix);
-            M.postMultTranslate(_position);
-            M.postMult(modelview);
-            osg::Matrix& P = projection;
+            typedef osg::Matrix::value_type value_type;
 
-            // compute the pixel size vector.
-
-            // pre adjust P00,P20,P23,P33 by multiplying them by the viewport window matrix.
-            // here we do it in short hand with the knowledge of how the window matrix is formed
-            // note P23,P33 are multiplied by an implicit 1 which would come from the window matrix.
-            // Robert Osfield, June 2002.
-
-            int width = 1280;
-            int height = 1024;
+            value_type width = 1280.0;
+            value_type height = 1024.0;
 
             const osg::Viewport* viewport = state->getCurrentViewport();
             if (viewport)
             {
-                width = static_cast<int>(viewport->width());
-                height = static_cast<int>(viewport->height());
+                width = static_cast<value_type>(viewport->width());
+                height = static_cast<value_type>(viewport->height());
             }
 
-            // scaling for horizontal pixels
-            float P00 = P(0,0)*width*0.5f;
-            float P20_00 = P(2,0)*width*0.5f + P(2,3)*width*0.5f;
-            osg::Vec3 scale_00(M(0,0)*P00 + M(0,2)*P20_00,
-                               M(1,0)*P00 + M(1,2)*P20_00,
-                               M(2,0)*P00 + M(2,2)*P20_00);
+            osg::Matrix mvpw = rotate_matrix * osg::Matrix::translate(_position) * modelview * projection * osg::Matrix::scale(width/2.0, height/2.0, 1.0);
 
-            // scaling for vertical pixels
-            float P10 = P(1,1)*height*0.5f;
-            float P20_10 = P(2,1)*height*0.5f + P(2,3)*height*0.5f;
-            osg::Vec3 scale_10(M(0,1)*P10 + M(0,2)*P20_10,
-                               M(1,1)*P10 + M(1,2)*P20_10,
-                               M(2,1)*P10 + M(2,2)*P20_10);
+            osg::Vec3d origin = osg::Vec3d(0.0, 0.0, 0.0) * mvpw;
+            osg::Vec3d left = osg::Vec3d(1.0, 0.0, 0.0) * mvpw - origin;
+            osg::Vec3d up = osg::Vec3d(0.0, 1.0, 0.0) * mvpw - origin;
 
-            float P23 = P(2,3);
-            float P33 = P(3,3);
+            // compute the pixel size vector.
+            value_type length_x = left.length();
+            value_type scale_x = length_x>0.0 ? 1.0/length_x : 1.0;
 
-            float pixelSizeVector_w = M(3,2)*P23 + M(3,3)*P33;
+            value_type length_y = up.length();
+            value_type scale_y = length_y>0.0 ? 1.0/length_y : 1.0;
 
-            float pixelSizeVert=(_characterHeight*sqrtf(scale_10.length2()))/(pixelSizeVector_w*0.701f);
-            float pixelSizeHori=(_characterHeight/getCharacterAspectRatio()*sqrtf(scale_00.length2()))/(pixelSizeVector_w*0.701f);
-
-            // avoid nasty math by preventing a divide by zero
-            if (pixelSizeVert == 0.0f)
-               pixelSizeVert= 1.0f;
-            if (pixelSizeHori == 0.0f)
-               pixelSizeHori= 1.0f;
+            if (_glyphNormalized)
+            {
+                osg::Vec3 scaleVec(_characterHeight/getCharacterAspectRatio(), _characterHeight, _characterHeight);
+                matrix.postMultScale(scaleVec);
+            }
 
             if (_characterSizeMode==SCREEN_COORDS)
             {
-                float scale_font_vert=_characterHeight/pixelSizeVert;
-                float scale_font_hori=_characterHeight/getCharacterAspectRatio()/pixelSizeHori;
-
-                if (P10<0)
-                   scale_font_vert=-scale_font_vert;
-                matrix.postMultScale(osg::Vec3f(scale_font_hori, scale_font_vert,1.0f));
+                matrix.postMultScale(osg::Vec3(scale_x, scale_y, scale_x));
             }
-            else if (pixelSizeVert>getFontHeight())
+            else
             {
-                float scale_font = getFontHeight()/pixelSizeVert;
-                matrix.postMultScale(osg::Vec3f(scale_font, scale_font,1.0f));
-            }
+                value_type pixelSizeVert = _characterHeight / scale_y;
 
+                // avoid nasty math by preventing a divide by zero
+                if (pixelSizeVert == 0.0)
+                pixelSizeVert = 1.0;
+
+                if (pixelSizeVert>getFontHeight())
+                {
+                    value_type scale_font = getFontHeight()/pixelSizeVert;
+                    matrix.postMultScale(osg::Vec3f(scale_font, scale_font, scale_font));
+                }
+            }
         }
 
         if (_autoRotateToScreen)
@@ -560,17 +585,29 @@ bool TextBase::computeMatrix(osg::Matrix& matrix, osg::State* state) const
         }
 
         matrix.postMultTranslate(_position);
+
     }
     else if (!_rotation.zeroRotation())
     {
-        matrix.makeRotate(_rotation);
-        matrix.preMultTranslate(-_offset);
+        matrix.makeTranslate(-_offset);
+        if (_glyphNormalized)
+        {
+            osg::Vec3 scaleVec(_characterHeight/getCharacterAspectRatio(), _characterHeight, _characterHeight);
+            matrix.postMultScale(scaleVec);
+        }
+        matrix.postMultRotate(_rotation);
         matrix.postMultTranslate(_position);
         // OSG_NOTICE<<"New Need to rotate "<<matrix<<std::endl;
     }
     else
     {
-        matrix.makeTranslate(_position-_offset);
+        matrix.makeTranslate(-_offset);
+        if (_glyphNormalized)
+        {
+            osg::Vec3 scaleVec(_characterHeight/getCharacterAspectRatio(), _characterHeight, _characterHeight);
+            matrix.postMultScale(scaleVec);
+        }
+        matrix.postMultTranslate(_position);
     }
 
     if (_matrix!=matrix)
@@ -712,12 +749,12 @@ void TextBase::setupDecoration()
 
     osg::Vec2 default_texcoord(-1.0, -1.0);
 
-    if ((_drawMode & FILLEDBOUNDINGBOX)!=0 && _textBB.valid())
+    if ((_drawMode & FILLEDBOUNDINGBOX)!=0 && _textBBWithMargin.valid())
     {
-        osg::Vec3 c000(_textBB.xMin(),_textBB.yMin(),_textBB.zMin());
-        osg::Vec3 c100(_textBB.xMax(),_textBB.yMin(),_textBB.zMin());
-        osg::Vec3 c110(_textBB.xMax(),_textBB.yMax(),_textBB.zMin());
-        osg::Vec3 c010(_textBB.xMin(),_textBB.yMax(),_textBB.zMin());
+        osg::Vec3 c000(_textBBWithMargin.xMin(),_textBBWithMargin.yMin(),_textBBWithMargin.zMin());
+        osg::Vec3 c100(_textBBWithMargin.xMax(),_textBBWithMargin.yMin(),_textBBWithMargin.zMin());
+        osg::Vec3 c110(_textBBWithMargin.xMax(),_textBBWithMargin.yMax(),_textBBWithMargin.zMin());
+        osg::Vec3 c010(_textBBWithMargin.xMin(),_textBBWithMargin.yMax(),_textBBWithMargin.zMin());
 
         unsigned int base = _coords->size();
 
@@ -746,14 +783,14 @@ void TextBase::setupDecoration()
         primitives->dirty();
     }
 
-    if ((_drawMode & BOUNDINGBOX)!=0 && _textBB.valid())
+    if ((_drawMode & BOUNDINGBOX)!=0 && _textBBWithMargin.valid())
     {
-        if (_textBB.zMin()==_textBB.zMax())
+        if (_textBBWithMargin.zMin()==_textBBWithMargin.zMax())
         {
-            osg::Vec3 c000(_textBB.xMin(),_textBB.yMin(),_textBB.zMin());
-            osg::Vec3 c100(_textBB.xMax(),_textBB.yMin(),_textBB.zMin());
-            osg::Vec3 c110(_textBB.xMax(),_textBB.yMax(),_textBB.zMin());
-            osg::Vec3 c010(_textBB.xMin(),_textBB.yMax(),_textBB.zMin());
+            osg::Vec3 c000(_textBBWithMargin.xMin(),_textBBWithMargin.yMin(),_textBBWithMargin.zMin());
+            osg::Vec3 c100(_textBBWithMargin.xMax(),_textBBWithMargin.yMin(),_textBBWithMargin.zMin());
+            osg::Vec3 c110(_textBBWithMargin.xMax(),_textBBWithMargin.yMax(),_textBBWithMargin.zMin());
+            osg::Vec3 c010(_textBBWithMargin.xMin(),_textBBWithMargin.yMax(),_textBBWithMargin.zMin());
 
             unsigned int base = _coords->size();
 
@@ -782,15 +819,15 @@ void TextBase::setupDecoration()
         }
         else
         {
-            osg::Vec3 c000(_textBB.xMin(),_textBB.yMin(),_textBB.zMin());
-            osg::Vec3 c100(_textBB.xMax(),_textBB.yMin(),_textBB.zMin());
-            osg::Vec3 c110(_textBB.xMax(),_textBB.yMax(),_textBB.zMin());
-            osg::Vec3 c010(_textBB.xMin(),_textBB.yMax(),_textBB.zMin());
+            osg::Vec3 c000(_textBBWithMargin.xMin(),_textBBWithMargin.yMin(),_textBBWithMargin.zMin());
+            osg::Vec3 c100(_textBBWithMargin.xMax(),_textBBWithMargin.yMin(),_textBBWithMargin.zMin());
+            osg::Vec3 c110(_textBBWithMargin.xMax(),_textBBWithMargin.yMax(),_textBBWithMargin.zMin());
+            osg::Vec3 c010(_textBBWithMargin.xMin(),_textBBWithMargin.yMax(),_textBBWithMargin.zMin());
 
-            osg::Vec3 c001(_textBB.xMin(),_textBB.yMin(),_textBB.zMax());
-            osg::Vec3 c101(_textBB.xMax(),_textBB.yMin(),_textBB.zMax());
-            osg::Vec3 c111(_textBB.xMax(),_textBB.yMax(),_textBB.zMax());
-            osg::Vec3 c011(_textBB.xMin(),_textBB.yMax(),_textBB.zMax());
+            osg::Vec3 c001(_textBBWithMargin.xMin(),_textBBWithMargin.yMin(),_textBBWithMargin.zMax());
+            osg::Vec3 c101(_textBBWithMargin.xMax(),_textBBWithMargin.yMin(),_textBBWithMargin.zMax());
+            osg::Vec3 c111(_textBBWithMargin.xMax(),_textBBWithMargin.yMax(),_textBBWithMargin.zMax());
+            osg::Vec3 c011(_textBBWithMargin.xMin(),_textBBWithMargin.yMax(),_textBBWithMargin.zMax());
 
             unsigned int base = _coords->size();
 

@@ -81,7 +81,7 @@ static bool getFilenameAndParams(const std::string& input, std::string& filename
  * This pseudo-loader make it simple to change the origin of a saved model
  * by specifying a correcting translation as part of the filename.
  *
- * Usage: <modelfile.ext>.<tx>,<ty>,<tz>.globe
+ * Usage: <modelfile.ext>.<tx>,<ty>,<tz>.trans
  * where:
  *      <modelfile.ext> = an model filename.
  *      <tx> = translation along the X axis.
@@ -100,6 +100,11 @@ public:
     }
 
     virtual const char* className() const { return "translation pseudo-loader"; }
+
+    virtual ReadResult readObject(const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
+    {
+        return readNode(fileName, options); 
+    }
 
     virtual ReadResult readNode(const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
     {

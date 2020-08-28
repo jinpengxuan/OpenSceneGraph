@@ -19,6 +19,7 @@
 #include <osg/io_utils>
 
 #include <osgDB/FileUtils>
+#include <osgDB/ReadFile>
 
 #include <osgUtil/CullVisitor>
 #include <osgSim/OverlayNode>
@@ -357,7 +358,7 @@ public:
 
     void projectDowntoBase(const osg::Vec3d& control, const osg::Vec3d& normal)
     {
-        // OSG_NOTICE<<"CustomPolytope::projectDowntoBase not implementated yet."<<std::endl;
+        // OSG_NOTICE<<"CustomPolytope::projectDowntoBase not implemented yet."<<std::endl;
 
         Faces removedFaces;
 
@@ -1028,7 +1029,7 @@ OverlayNode::OverlayData* OverlayNode::getOverlayData(osgUtil::CullVisitor* cv)
         std::string vertexShaderFile = osgDB::findDataFile("shaders/overlay_perspective_rtt.vert");
         if (!vertexShaderFile.empty())
         {
-            program->addShader(osg::Shader::readShaderFile(osg::Shader::VERTEX, vertexShaderFile));
+            program->addShader(osgDB::readRefShaderFile(osg::Shader::VERTEX, vertexShaderFile));
         }
         else
         {
@@ -1119,7 +1120,7 @@ OverlayNode::OverlayData* OverlayNode::getOverlayData(osgUtil::CullVisitor* cv)
         std::string fragmentShaderFile = osgDB::findDataFile("shaders/overlay_perspective_main.frag");
         if (!fragmentShaderFile.empty())
         {
-            overlayData->_mainSubgraphProgram->addShader(osg::Shader::readShaderFile(osg::Shader::FRAGMENT, fragmentShaderFile));
+            overlayData->_mainSubgraphProgram->addShader(osgDB::readRefShaderFile(osg::Shader::FRAGMENT, fragmentShaderFile));
         }
         else
         {

@@ -34,6 +34,11 @@ class ReaderWriterLAS : public osgDB::ReaderWriter
 
         virtual const char* className() const { return "LAS point cloud reader"; }
 
+        virtual ReadResult readObject(const std::string& filename, const osgDB::ReaderWriter::Options* options) const
+        {
+            return readNode(filename, options);
+        }
+
         virtual ReadResult readNode(const std::string& file, const osgDB::ReaderWriter::Options* options) const 
         {
             std::string ext = osgDB::getLowerCaseFileExtension(file);
@@ -51,7 +56,12 @@ class ReaderWriterLAS : public osgDB::ReaderWriter
             return readNode(ifs, options);
         }
 
-        virtual ReadResult readNode(std::istream& ifs, const Options* options) const {
+        virtual ReadResult readObject(std::istream& fin, const osgDB::ReaderWriter::Options* options) const
+        {
+            return readNode(fin, options);
+        }
+
+       virtual ReadResult readNode(std::istream& ifs, const Options* options) const {
             // Reading options
             bool _verbose = false;
             bool _scale = true;
@@ -204,6 +214,24 @@ class ReaderWriterLAS : public osgDB::ReaderWriter
             double mid_y = 0.5*(my.second + my.first);
             double mid_z = 0.5*(mz.second + mz.first);
             osg::Vec3 midVec(mid_x, mid_y, mid_z);
+
+            geometry->setUseDisplayList(true);
+            geometry->setUseVertexBufferObjects(true);
+            geometry->setVertexArray(vertices);
+            if (singleColor)
+            {
+                colours->resize(1);
+                geometry->setColorArray(colours, osg::Array::BIND_OVERALL);
+            }
+            else
+            {
+                geometry->setColorArray(colours, osg::Array::BIND_PER_VERTEX);
+
+            }
+            geometry->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, vertices->size()));
+
+            geode->addDrawable(geometry);
+
             if (_recenter)
             {
                 //Transform vertices to midpoint
@@ -228,24 +256,6 @@ class ReaderWriterLAS : public osgDB::ReaderWriter
                 std::cout << "Read points: " << i << " Elapsed Time: " << d2
                     << std::endl << std::endl;
             }
-
-            geometry->setUseDisplayList(true);
-            geometry->setUseVertexBufferObjects(true);
-            geometry->setVertexArray(vertices);
-            if (singleColor)
-            {
-                colours->resize(1);
-                geometry->setColorArray(colours, osg::Array::BIND_OVERALL);
-            }
-            else
-            {
-                geometry->setColorArray(colours, osg::Array::BIND_PER_VERTEX);
-
-            }
-            geometry->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, vertices->size()));
-
-            geode->addDrawable(geometry);
-
 
             // MatrixTransform with the mid-point translation
 

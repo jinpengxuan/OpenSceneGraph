@@ -56,7 +56,7 @@ struct GeometryArrayGatherer
 
     GeometryArrayGatherer(osg::Geometry& geometry)
     {
-        add(geometry.getVertexArray());
+        add(geometry.getVertexArray(), osg::Array::BIND_PER_VERTEX);
         add(geometry.getNormalArray());
         add(geometry.getColorArray());
         add(geometry.getSecondaryColorArray());
@@ -64,7 +64,7 @@ struct GeometryArrayGatherer
         unsigned int i;
         for(i=0;i<geometry.getNumTexCoordArrays();++i)
         {
-            add(geometry.getTexCoordArray(i));
+            add(geometry.getTexCoordArray(i), osg::Array::BIND_PER_VERTEX);
         }
         for(i=0;i<geometry.getNumVertexAttribArrays();++i)
         {
@@ -72,9 +72,16 @@ struct GeometryArrayGatherer
         }
     }
 
-    void add(osg::Array* array)
+    void add(osg::Array* array, osg::Array::Binding overrideBinding=osg::Array::BIND_UNDEFINED)
     {
-        if (array && array->getBinding()==osg::Array::BIND_PER_VERTEX)
+        if (!array) return;
+
+        if (overrideBinding!=osg::Array::BIND_UNDEFINED && array->getBinding()!=overrideBinding)
+        {
+            array->setBinding(overrideBinding);
+        }
+
+        if (array->getBinding()==osg::Array::BIND_PER_VERTEX)
         {
             _arrayList.push_back(array);
         }
@@ -99,6 +106,11 @@ struct VertexAttribComparitor : public GeometryArrayGatherer
 {
     VertexAttribComparitor(osg::Geometry& geometry)
         : GeometryArrayGatherer(geometry)
+    {
+    }
+
+    VertexAttribComparitor(const VertexAttribComparitor& rhs)
+        : GeometryArrayGatherer(rhs)
     {
     }
 
@@ -262,7 +274,7 @@ void IndexMeshVisitor::makeMesh(Geometry& geom)
     }
 
     // nothing to index
-    if (!numSurfacePrimitives || !numNonIndexedPrimitives) return;
+    if (!numSurfacePrimitives || (!_generateNewIndicesOnAllGeometries && !numNonIndexedPrimitives)) return;
 
     // duplicate shared arrays as it isn't safe to rearrange vertices when arrays are shared.
     if (geom.containsSharedArrays()) geom.duplicateSharedArrays();
@@ -735,7 +747,7 @@ void VertexCacheVisitor::optimizeVertices(Geometry& geom)
     else
         cout << "0.0\n";
 #endif
-    geom.dirtyDisplayList();
+    geom.dirtyGLObjects();
 }
 
 // The main optimization loop
@@ -1176,28 +1188,28 @@ void VertexAccessOrderVisitor::optimizeOrder(Geometry& geom)
     // deduplicate UVs array that were only shared within the geometry
     deduplicator.deduplicateUVs(geom);
 
-    geom.dirtyDisplayList();
+    geom.dirtyGLObjects();
 }
 
 void SharedArrayOptimizer::findDuplicatedUVs(const osg::Geometry& geometry)
 {
     _deduplicateUvs.clear();
 
-    // look for all channels that are shared only *within* the geometry
+    // look for all arrays that are shared only *within* the geometry
     std::map<const osg::Array*, unsigned int> arrayPointerCounter;
 
     for(unsigned int id = 0 ; id < geometry.getNumTexCoordArrays() ; ++ id)
     {
-        const osg::Array* channel = geometry.getTexCoordArray(id);
-        if(channel && channel->getNumElements())
+        const osg::Array* array = geometry.getTexCoordArray(id);
+        if(array && array->getNumElements())
         {
-            if(arrayPointerCounter.find(channel) == arrayPointerCounter.end())
+            if(arrayPointerCounter.find(array) == arrayPointerCounter.end())
             {
-                arrayPointerCounter[channel] = 1;
+                arrayPointerCounter[array] = 1;
             }
             else
             {
-                arrayPointerCounter[channel] += 1;
+                arrayPointerCounter[array] += 1;
             }
         }
     }
@@ -1206,14 +1218,14 @@ void SharedArrayOptimizer::findDuplicatedUVs(const osg::Geometry& geometry)
 
     for(unsigned int id = 0 ; id != geometry.getNumTexCoordArrays() ; ++ id)
     {
-        const osg::Array* channel = geometry.getTexCoordArray(id);
-        // test if array is shared outside the geometry
-        if(channel && static_cast<unsigned int>(channel->referenceCount()) == arrayPointerCounter[channel])
+        const osg::Array* array = geometry.getTexCoordArray(id);
+        // test if array is shared inside the geometry
+        if(array && arrayPointerCounter[array] > 1)
         {
-            std::map<const osg::Array*, unsigned int>::const_iterator reference = references.find(channel);
+            std::map<const osg::Array*, unsigned int>::const_iterator reference = references.find(array);
             if(reference == references.end())
             {
-                references[channel] = id;
+                references[array] = id;
             }
             else
             {

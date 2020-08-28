@@ -7,7 +7,7 @@
 class EscapeHandler : public osgGA::GUIEventHandler
 {
     public:
-    
+
         EscapeHandler() {}
 
         bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter& aa)
@@ -22,9 +22,10 @@ class EscapeHandler : public osgGA::GUIEventHandler
                     {
                         osgViewer::View* view = dynamic_cast<osgViewer::View*>(&aa);
                         if (view) view->getViewerBase()->setDone(true);
-                        
+
                         return true;
                     }
+                    break;
                 }
 
                 default:
@@ -37,6 +38,8 @@ class EscapeHandler : public osgGA::GUIEventHandler
 int main(int argc,char** argv)
 {
     osg::ArgumentParser arguments(&argc, argv);
+    arguments.getApplicationUsage()->addCommandLineOption("--login <url> <username> <password>", "Provide authentication information for http file access.");
+    arguments.getApplicationUsage()->addCommandLineOption("--password <password>", "Provide password for any vnc url on command line not mentioned in --login.");
     osgViewer::Viewer viewer(arguments);
 
     osgWidget::GeometryHints hints(osg::Vec3(0.0f,0.0f,0.0f),
@@ -52,6 +55,15 @@ int main(int argc,char** argv)
     {
     }
 
+    std::string url, username;
+    while (arguments.read("--login", url, username, password))
+    {
+        osgDB::Registry::instance()->getOrCreateAuthenticationMap()->addAuthenticationDetails(
+            url,
+            new osgDB::AuthenticationDetails(username, password)
+        );
+    }
+
     for(int i=1; i<arguments.argc(); ++i)
     {
         if (!arguments.isOption(i))
@@ -60,15 +72,19 @@ int main(int argc,char** argv)
 
             if (!password.empty())
             {
-                if (!osgDB::Registry::instance()->getAuthenticationMap()) osgDB::Registry::instance()->setAuthenticationMap(new osgDB::AuthenticationMap);
-                osgDB::Registry::instance()->getAuthenticationMap()->addAuthenticationDetails(hostname, new osgDB::AuthenticationDetails("", password));
+                osgDB::AuthenticationMap* authenticationMap = osgDB::Registry::instance()->getOrCreateAuthenticationMap();
+                const osgDB::AuthenticationDetails* details = authenticationMap->getAuthenticationDetails(hostname);
+                if (details == NULL)
+                {
+                    authenticationMap->addAuthenticationDetails(hostname, new osgDB::AuthenticationDetails("", password));
+                }
             }
 
             osg::ref_ptr<osgWidget::VncClient> vncClient = new osgWidget::VncClient;
             if (vncClient->connect(arguments[i], hints))
-            {            
+            {
                 group->addChild(vncClient.get());
-                
+
                 hints.position.x() += 1.1f;
             }
         }
@@ -80,7 +96,7 @@ int main(int argc,char** argv)
 
     // add a custom escape handler, but disable the standard viewer one to enable the vnc images to handle
     // the escape without it getting caught by the viewer.
-    viewer.addEventHandler(new EscapeHandler);    
+    viewer.addEventHandler(new EscapeHandler);
     viewer.setKeyEventSetsDone(0);
 
     return viewer.run();

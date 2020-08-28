@@ -45,6 +45,8 @@ class MyGraphicsContext {
             traits->doubleBuffer = false;
             traits->sharedContext = 0;
             traits->pbuffer = true;
+            traits->readDISPLAY();
+            traits->setUndefinedScreenDetailsToDefaultScreen();
 
             _gc = osg::GraphicsContext::createGraphicsContext(traits.get());
 
@@ -740,7 +742,7 @@ int main( int argc, char **argv )
     while(arguments.read("--addMissingColours") || arguments.read("--addMissingColors")) { addMissingColours = true; }
 
     bool do_overallNormal = false;
-    while(arguments.read("--overallNormal") || arguments.read("--overallNormal")) { do_overallNormal = true; }
+    while(arguments.read("--overallNormal")) { do_overallNormal = true; }
 
     bool enableObjectCache = false;
     while(arguments.read("--enable-object-cache")) { enableObjectCache = true; }

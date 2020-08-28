@@ -137,6 +137,7 @@ InternalPixelRelations sizedInternalFormats[] = {
 
 
     , { GL_RGBA8                               , GL_RGBA             , GL_UNSIGNED_BYTE                             }
+    , { GL_RGBA16                              , GL_RGBA             , GL_UNSIGNED_SHORT                            }
     , { GL_RGB10_A2                            , GL_RGBA             , GL_UNSIGNED_INT_10_10_10_2                   }
     , { GL_RGB10_A2                            , GL_RGBA             , GL_UNSIGNED_INT_2_10_10_10_REV               }
     , { GL_RGBA12                              , GL_RGBA             , GL_UNSIGNED_SHORT                            }
@@ -149,8 +150,8 @@ InternalPixelRelations sizedInternalFormats[] = {
     , { GL_RGB5_A1                             , GL_RGBA             , GL_UNSIGNED_INT_10_10_10_2                   }
     , { GL_RGB5_A1                             , GL_RGBA             , GL_UNSIGNED_INT_2_10_10_10_REV               }
  // , { GL_RGBA16F                             , GL_RGBA             , GL_HALF_FLOAT                                }
- // , { GL_RGBA16F                             , GL_RGBA             , GL_FLOAT                                     }
- // , { GL_RGBA32F                             , GL_RGBA             , GL_FLOAT                                     }
+    , { GL_RGBA16F_ARB                         , GL_RGBA             , GL_FLOAT                                     }
+    , { GL_RGBA32F_ARB                         , GL_RGBA             , GL_FLOAT                                     }
 
     , { GL_SRGB8                               , GL_RGB              , GL_UNSIGNED_BYTE                             }
     , { GL_SRGB8_ALPHA8                        , GL_RGBA             , GL_UNSIGNED_BYTE                             }
@@ -227,7 +228,7 @@ GLenum assumeSizedInternalFormat(GLint internalFormat, GLenum type)
     return 0;
 }
 
-bool isCompressedInternalFormatSupportedByTexStorrage(GLint internalFormat)
+bool isCompressedInternalFormatSupportedByTexStorage(GLint internalFormat)
 {
     const size_t formatsCount = sizeof(compressedInternalFormats) / sizeof(compressedInternalFormats[0]);
 
@@ -245,10 +246,12 @@ Texture::TextureObject::~TextureObject()
     // OSG_NOTICE<<"Texture::TextureObject::~TextureObject() "<<this<<std::endl;
 }
 
-void Texture::TextureObject::bind()
+void Texture::TextureObject::bind(osg::State& state)
 {
     glBindTexture( _profile._target, _id);
     if (_set) _set->moveToBack(this);
+
+    if (state.getUseStateAttributeShaders()) state.setCurrentTextureFormat(_profile._internalFormat);
 }
 
 void Texture::TextureObject::release()
@@ -1222,12 +1225,21 @@ osg::ref_ptr<Texture::TextureObject> Texture::generateTextureObject(const Textur
 // Texture class implementation
 //
 Texture::Texture():
+#if 0
             _wrap_s(CLAMP),
             _wrap_t(CLAMP),
             _wrap_r(CLAMP),
+#else
+            _wrap_s(CLAMP_TO_EDGE),
+            _wrap_t(CLAMP_TO_EDGE),
+            _wrap_r(CLAMP_TO_EDGE),
+#endif
             _min_filter(LINEAR_MIPMAP_LINEAR), // trilinear
             _mag_filter(LINEAR),
             _maxAnisotropy(1.0f),
+            _minlod(0.0f),
+            _maxlod(-1.0f),
+            _lodbias(0.0f),
             _swizzle(GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA),
             _useHardwareMipMapGeneration(true),
             _unrefImageDataAfterApply(false),
@@ -1248,13 +1260,16 @@ Texture::Texture():
 }
 
 Texture::Texture(const Texture& text,const CopyOp& copyop):
-            StateAttribute(text,copyop),
+            TextureAttribute(text,copyop),
             _wrap_s(text._wrap_s),
             _wrap_t(text._wrap_t),
             _wrap_r(text._wrap_r),
             _min_filter(text._min_filter),
             _mag_filter(text._mag_filter),
             _maxAnisotropy(text._maxAnisotropy),
+            _minlod(text._minlod),
+            _maxlod(text._maxlod),
+            _lodbias(text._lodbias),
             _swizzle(text._swizzle),
             _useHardwareMipMapGeneration(text._useHardwareMipMapGeneration),
             _unrefImageDataAfterApply(text._unrefImageDataAfterApply),
@@ -1288,11 +1303,14 @@ int Texture::compareTexture(const Texture& rhs) const
     COMPARE_StateAttribute_Parameter(_min_filter)
     COMPARE_StateAttribute_Parameter(_mag_filter)
     COMPARE_StateAttribute_Parameter(_maxAnisotropy)
+    COMPARE_StateAttribute_Parameter(_minlod)
+    COMPARE_StateAttribute_Parameter(_maxlod)
+    COMPARE_StateAttribute_Parameter(_lodbias)
     COMPARE_StateAttribute_Parameter(_swizzle)
     COMPARE_StateAttribute_Parameter(_useHardwareMipMapGeneration)
     COMPARE_StateAttribute_Parameter(_internalFormatMode)
 
-    // only compare _internalFomat is it has alrady been set in both lhs, and rhs
+    // only compare _internalFomat is it has already been set in both lhs, and rhs
     if (_internalFormat!=0 && rhs._internalFormat!=0)
     {
         COMPARE_StateAttribute_Parameter(_internalFormat)
@@ -1336,7 +1354,6 @@ void Texture::setWrap(WrapParameter which, WrapMode wrap)
         case WRAP_R : _wrap_r = wrap; dirtyTextureParameters(); break;
         default : OSG_WARN<<"Error: invalid 'which' passed Texture::setWrap("<<(unsigned int)which<<","<<(unsigned int)wrap<<")"<<std::endl; break;
     }
-
 }
 
 
@@ -1382,15 +1399,31 @@ void Texture::setMaxAnisotropy(float anis)
     }
 }
 
-void Texture::bindToImageUnit(unsigned int unit, GLenum access, GLenum format, int level, bool layered, int layer)
+void Texture::setMinLOD(float anis)
 {
-    _imageAttachment.unit = unit;
-    _imageAttachment.level = level;
-    _imageAttachment.layered = layered ? GL_TRUE : GL_FALSE;
-    _imageAttachment.layer = layer;
-    _imageAttachment.access = access;
-    _imageAttachment.format = format;
-    dirtyTextureParameters();
+    if (_minlod!=anis)
+    {
+        _minlod = anis;
+        dirtyTextureParameters();
+    }
+}
+
+void Texture::setMaxLOD(float anis)
+{
+    if (_maxlod!=anis)
+    {
+        _maxlod = anis;
+        dirtyTextureParameters();
+    }
+}
+
+void Texture::setLODBias(float anis)
+{
+    if (_lodbias!=anis)
+    {
+        _lodbias = anis;
+        dirtyTextureParameters();
+    }
 }
 
 /** Force a recompile on next apply() of associated OpenGL texture objects.*/
@@ -1616,7 +1649,7 @@ void Texture::computeInternalFormatWithImage(const osg::Image& image) const
         }
     }
 
-#if defined (OSG_GLES1_AVAILABLE) || defined (OSG_GLES2_AVAILABLE)
+#if defined (OSG_GLES1_AVAILABLE) || defined (OSG_GLES2_AVAILABLE) || defined (OSG_GLES3_AVAILABLE)
     // GLES doesn't cope with internal formats of 1,2,3 and 4 and glTexImage doesn't
     // handle the _OES pixel formats so map them to the appropriate equivilants.
     switch(internalFormat)
@@ -1634,7 +1667,7 @@ void Texture::computeInternalFormatWithImage(const osg::Image& image) const
     {
         case(GL_INTENSITY) : internalFormat = GL_RED; break; // should it be swizzled to match RGBA(INTENSITY, INTENSITY, INTENSITY, INTENSITY)?
         case(GL_LUMINANCE) : internalFormat = GL_RED; break; // should it be swizzled to match RGBA(LUMINANCE, LUMINANCE, LUMINANCE, 1.0)?
-        case(1) : internalFormat = GL_RED; break; // or sould this be GL_ALPHA?
+        case(1) : internalFormat = GL_RED; break; // or should this be GL_ALPHA?
         case(2) : internalFormat = GL_RG; break; // should we assume GL_LUMINANCE_ALPHA?
         case(GL_LUMINANCE_ALPHA) : internalFormat = GL_RG; break; // should it be swizlled to match RGAB(LUMUNIANCE, LUMINANCE, LUMINANCE, ALPHA)?
         case(3) : internalFormat = GL_RGB; break;
@@ -1905,7 +1938,7 @@ void Texture::applyTexParameters(GLenum target, State& state) const
             wr = CLAMP;
     }
 
-    #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
+    #if defined(OSG_GLES1_AVAILABLE) || defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE) || defined(OSG_GL3_AVAILABLE)
         if (ws == CLAMP) ws = CLAMP_TO_EDGE;
         if (wt == CLAMP) wt = CLAMP_TO_EDGE;
         if (wr == CLAMP) wr = CLAMP_TO_EDGE;
@@ -1971,7 +2004,7 @@ void Texture::applyTexParameters(GLenum target, State& state) const
     // integer textures are not supported by the shadow
     // GL_TEXTURE_1D_ARRAY_EXT could be included in the check below but its not yet implemented in OSG
     if (extensions->isShadowSupported &&
-        (target == GL_TEXTURE_2D || target == GL_TEXTURE_1D || target == GL_TEXTURE_RECTANGLE || target == GL_TEXTURE_CUBE_MAP || target == GL_TEXTURE_2D_ARRAY_EXT ) &&
+        (target == GL_TEXTURE_2D || target == GL_TEXTURE_1D || target == GL_TEXTURE_RECTANGLE || target == GL_TEXTURE_CUBE_MAP || target == GL_TEXTURE_2D_ARRAY ) &&
         _internalFormatType != SIGNED_INTEGER && _internalFormatType != UNSIGNED_INTEGER)
     {
         if (_use_shadow_comparison)
@@ -1994,19 +2027,14 @@ void Texture::applyTexParameters(GLenum target, State& state) const
             glTexParameteri(target, GL_TEXTURE_COMPARE_MODE_ARB, GL_NONE);
         }
     }
-
-    // Apply image load/store attributes
-    if (extensions->isBindImageTextureSupported() && _imageAttachment.access!=0)
+    // if range is valid
+    if( _maxlod - _minlod >= 0)
     {
-        TextureObject* tobj = getTextureObject(contextID);
-        if (tobj)
-        {
-            extensions->glBindImageTexture(
-                _imageAttachment.unit, tobj->id(), _imageAttachment.level,
-                _imageAttachment.layered, _imageAttachment.layer, _imageAttachment.access,
-                _imageAttachment.format!=0 ? _imageAttachment.format : _internalFormat);
-        }
+        glTexParameterf(target, GL_TEXTURE_MIN_LOD, _minlod);
+        glTexParameterf(target, GL_TEXTURE_MAX_LOD, _maxlod);
     }
+
+    glTexParameterf(target, GL_TEXTURE_LOD_BIAS, _lodbias);
 
     getTextureParameterDirty(state.getContextID()) = false;
 
@@ -2063,6 +2091,43 @@ bool Texture::areAllTextureObjectsLoaded() const
     return true;
 }
 
+GLenum Texture::selectSizedInternalFormat(const osg::Image* image) const
+{
+    if (image)
+    {
+        bool compressed_image = isCompressedInternalFormat((GLenum)image->getPixelFormat());
+
+        //calculate sized internal format
+        if(compressed_image)
+        {
+            if(isCompressedInternalFormatSupportedByTexStorage(_internalFormat))
+            {
+                return _internalFormat;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        else
+        {
+            if(isSizedInternalFormat(_internalFormat))
+            {
+                return _internalFormat;
+            }
+            else
+            {
+                return assumeSizedInternalFormat((GLenum)image->getInternalTextureFormat(), (GLenum)image->getDataType());
+            }
+        }
+    }
+    else
+    {
+        if (isSizedInternalFormat(_internalFormat)) return _internalFormat;
+
+        return assumeSizedInternalFormat(_internalFormat, (_sourceType!=0) ? _sourceType : GL_UNSIGNED_BYTE);
+    }
+}
 
 void Texture::applyTexImage2D_load(State& state, GLenum target, const Image* image, GLsizei inwidth, GLsizei inheight,GLsizei numMipmapLevels) const
 {
@@ -2206,7 +2271,7 @@ void Texture::applyTexImage2D_load(State& state, GLenum target, const Image* ima
     {
         pbo = 0;
     }
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
     glPixelStorei(GL_UNPACK_ROW_LENGTH,rowLength);
 #endif
     if( !mipmappingRequired || useHardwareMipMapGeneration)
@@ -2253,40 +2318,20 @@ void Texture::applyTexImage2D_load(State& state, GLenum target, const Image* ima
             int width  = inwidth;
             int height = inheight;
 
-            bool useTexStorrage = extensions->isTextureStorageEnabled;
-            GLenum sizedInternalFormat = 0;
-
-            if(useTexStorrage)
+            GLenum texStorageSizedInternalFormat = extensions->isTexStorage2DSupported() && (_borderWidth==0) ? selectSizedInternalFormat(image) : 0;
+            if (texStorageSizedInternalFormat!=0)
             {
-                if(extensions->isTexStorage2DSupported() && _borderWidth == 0)
+                if (getTextureTarget()==GL_TEXTURE_CUBE_MAP)
                 {
-                    //calculate sized internal format
-                    if(!compressed_image)
+                    if (target==GL_TEXTURE_CUBE_MAP_POSITIVE_X)
                     {
-                        if(isSizedInternalFormat(_internalFormat))
-                        {
-                            sizedInternalFormat = _internalFormat;
-                        }
-                        else
-                        {
-                            sizedInternalFormat = assumeSizedInternalFormat((GLenum)image->getInternalTextureFormat(), (GLenum)image->getDataType());
-                        }
-                    }
-                    else
-                    {
-                        if(isCompressedInternalFormatSupportedByTexStorrage(_internalFormat))
-                        {
-                            sizedInternalFormat = _internalFormat;
-                        }
+                        extensions->glTexStorage2D(GL_TEXTURE_CUBE_MAP, numMipmapLevels, texStorageSizedInternalFormat, width, height);
                     }
                 }
-
-                useTexStorrage &= sizedInternalFormat != 0;
-            }
-
-            if(useTexStorrage)
-            {
-                extensions->glTexStorage2D(target, numMipmapLevels, sizedInternalFormat, width, height);
+                else
+                {
+                    extensions->glTexStorage2D(target, numMipmapLevels, texStorageSizedInternalFormat, width, height);
+                }
 
                 if( !compressed_image )
                 {
@@ -2552,7 +2597,7 @@ void Texture::applyTexImage2D_subload(State& state, GLenum target, const Image* 
     {
         pbo = 0;
     }
-#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE)
+#if !defined(OSG_GLES1_AVAILABLE) && !defined(OSG_GLES2_AVAILABLE) && !defined(OSG_GLES3_AVAILABLE)
     glPixelStorei(GL_UNPACK_ROW_LENGTH,rowLength);
 #endif
     if( !mipmappingRequired || useHardwareMipMapGeneration)
@@ -2689,7 +2734,7 @@ Texture::GenerateMipmapMode Texture::mipmapBeforeTexImage(const State& state, bo
 {
     if (hardwareMipmapOn)
     {
-#if defined( OSG_GLES2_AVAILABLE ) || defined( OSG_GL3_AVAILABLE )
+#if defined( OSG_GLES2_AVAILABLE ) || defined( OSG_GLES3_AVAILABLE ) || defined( OSG_GL3_AVAILABLE )
         return GENERATE_MIPMAP;
 #else
 
@@ -2713,7 +2758,7 @@ Texture::GenerateMipmapMode Texture::mipmapBeforeTexImage(const State& state, bo
             if (useGenerateMipMap) return GENERATE_MIPMAP;
         }
 
-        glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
+        glTexParameteri(getTextureTarget(), GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
         return GENERATE_MIPMAP_TEX_PARAMETER;
 #endif
     }
@@ -2736,7 +2781,7 @@ void Texture::mipmapAfterTexImage(State& state, GenerateMipmapMode beforeResult)
             break;
         }
         case GENERATE_MIPMAP_TEX_PARAMETER:
-            glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP_SGIS, GL_FALSE);
+            glTexParameteri(getTextureTarget(), GL_GENERATE_MIPMAP_SGIS, GL_FALSE);
             break;
         case GENERATE_MIPMAP_NONE:
             break;
@@ -2768,7 +2813,7 @@ void Texture::generateMipmap(State& state) const
     // FrameBufferObjects are required for glGenerateMipmap
     if (ext->isFrameBufferObjectSupported && ext->glGenerateMipmap)
     {
-        textureObject->bind();
+        textureObject->bind(state);
         ext->glGenerateMipmap(textureObject->target());
 
         // inform state that this texture is the current one bound.

@@ -138,7 +138,7 @@ void MinimalShadowMap::ViewData::aimShadowCastingCamera
 
     if( up.length2() <= 0 )
     {
-    // This is extra step (not really needed but helpful in debuging)
+    // This is extra step (not really needed but helpful in debugging)
     // Compute such lightUp vector that shadow cam is intuitively aligned with eye
     // We compute this vector on -ZY view plane, perpendicular to light direction
     // Matrix m = ViewToWorld
@@ -191,7 +191,7 @@ void MinimalShadowMap::ViewData::frameShadowCastingCamera
         osg::Matrix transform = osg::Matrix::inverse( mvp );
 
         // Code below was working only for directional lights ie when projection was ortho
-        // osg::Vec3d normal = osg::Matrix::transform3x3( osg::Vec3d( 0,0,-1)., transfrom );
+        // osg::Vec3d normal = osg::Matrix::transform3x3( osg::Vec3d( 0,0,-1)., transform );
 
         // So I replaced it with safer code working with spot lights as well
         osg::Vec3d normal =
@@ -234,7 +234,7 @@ void MinimalShadowMap::ViewData::frameShadowCastingCamera
     if( bb.valid() )
         trimProjection( cameraShadow->getProjectionMatrix(), bb, 1|2|4|8|16|32 );
 
-    ///// Debuging stuff //////////////////////////////////////////////////////////
+    ///// Debugging stuff //////////////////////////////////////////////////////////
     setDebugPolytope( "scene", _sceneReceivingShadowPolytope, osg::Vec4(0,1,0,1) );
 
 
@@ -299,7 +299,7 @@ void MinimalShadowMap::ViewData::cullShadowReceivingScene( )
             _cv->clampProjectionMatrix( _clampedProjection, n, f );
     }
 
-    // Aditionally clamp far plane if shadows don't need to be cast as
+    // Additionally clamp far plane if shadows don't need to be cast as
     // far as main projection far plane
     if( 0 < *_maxFarPlanePtr )
         clampProjection( _clampedProjection, 0.f, *_maxFarPlanePtr );

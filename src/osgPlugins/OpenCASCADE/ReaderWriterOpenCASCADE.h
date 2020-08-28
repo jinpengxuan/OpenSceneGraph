@@ -47,8 +47,6 @@
 #include <osgDB/FileNameUtils>
 #include <osgDB/FileUtils>
 
-#include <osgUtil/TriStripVisitor>
-
 /// \class ReaderWritterOpenCASCADE
 /// \brief contains implementation of reading IGES models
 ///        depends on OpenCascade library
@@ -63,6 +61,12 @@ class ReaderWritterOpenCASCADE: public osgDB::ReaderWriter
 
         /// \brief returns class name
         virtual const char* className() const { return "STEP/IGES Reader"; }
+
+
+        virtual ReadResult readObject(const std::string& fileName, const osgDB::ReaderWriter::Options* options) const
+        {
+            return readNode(fileName, options);
+        }
 
         virtual osgDB::ReaderWriter::ReadResult readNode(const std::string& fileName, const osgDB::ReaderWriter::Options*) const;
 
@@ -91,7 +95,7 @@ class ReaderWritterOpenCASCADE: public osgDB::ReaderWriter
 
                 /// \brief heals a opencascade shape
                 /// \detail http://www.opencascade.org/org/forum/thread_12716/?forum=3
-                ///         Usually IGES files suffer from precision problems (when transfering from
+                ///         Usually IGES files suffer from precision problems (when transferring from
                 ///         one CAD system to another).It might be the case that faces are not sewed
                 ///         properly,  or do not have the right precision, and so the tesselator does
                 ///         not treat them like "sewed". this needs to be done for sewing

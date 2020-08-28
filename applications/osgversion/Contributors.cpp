@@ -272,7 +272,19 @@ const char* invalidNames[] =
     "Fri",
     "Sat",
     "Sun",
-    "I"
+    "I",
+    "TriangleFunctor",
+    "PrimitiveFunctor",
+    "OpenMW",
+    "StreamOperator",
+    "SceneLoader",
+    "OpenGL",
+    "FindLIBLAS",
+    "PissedCapslock",
+    "MinGW",
+    "Haojia521",
+    "Github",
+    "It"
 };
 
 
@@ -496,7 +508,8 @@ TypoCorrection typoCorrections[] =
     {"ViganÃ²", "Viganò"},
     {"Vigano", "Viganò"},
     {"Frashud", "Farshid"},
-    {"Dannahauer","Dannahauer"}
+    {"Dannahauer","Dannahauer"},
+    {"Sando","Sandro"}
 };
 
 
@@ -510,6 +523,8 @@ struct NameCorrection
 
 NameCorrection nameCorrections[] =
 {
+    {"LaurensVoerman","GetScalarValue",
+     "Laurens", "Voerman"},
     {"LaurensVoerman","Meta_Shape",
      "Laurens", "Voerman"},
     {"LaurensVoerman","OpenCascade",
@@ -695,7 +710,9 @@ NameCorrection nameCorrections[] =
      {"WeSee", "",
        "Alois", "Wismer"},
      {"We", "See",
-       "Alois", "Wismer"}
+       "Alois", "Wismer"},
+     {"AnyOldName3", "",
+       "Chris", "Djali"}
 };
 
 

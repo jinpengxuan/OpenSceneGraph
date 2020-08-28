@@ -123,7 +123,7 @@ public:
             if (l>='a' && l<='z') l = (l-'a')+'A';
             if (r>='a' && r<='z') r = (r-'a')+'A';
 
-            // if both charaters are equal then move to the next character
+            // if both characters are equal then move to the next character
             if (l==r)
             {
                 lhs_itr++;
@@ -163,8 +163,18 @@ public:
 
     osgDB::XmlNode::Properties::const_iterator findProperty(osgDB::XmlNode* cur, const char* token) const;
 
+    virtual ReadResult readObject(const std::string& filename, const osgDB::ReaderWriter::Options* options) const
+    {
+        return readNode(filename, options);
+    }
+
     virtual ReadResult readNode(const std::string& fileName,
                                 const osgDB::ReaderWriter::Options* options) const;
+
+    virtual ReadResult readObject(std::istream& fin, const osgDB::ReaderWriter::Options* options) const
+    {
+        return readNode(fin, options);
+    }
 
     virtual ReadResult readNode(std::istream& fin, const Options* options) const;
 
@@ -217,10 +227,10 @@ public:
         qlhs.makeRotate(osg::DegreesToRadians(lhs[0]),lhs[1],lhs[2],lhs[3]);
         qrhs.makeRotate(osg::DegreesToRadians(rhs[0]),rhs[1],rhs[2],rhs[3]);
         osg::Quat quat = qlhs*qrhs;
-        osg::Vec4d result;
-        quat.getRotate ( result[0], result[1], result[2], result[3]);
-        result[0] = osg::RadiansToDegrees(result[0]);
-        return result;
+        osg::Quat::value_type angle;
+        osg::Vec3 direction;
+        quat.getRotate(angle, direction);
+        return osg::Vec4(osg::RadiansToDegrees(angle), direction.x(), direction.y(), direction.z());
     }
 
     inline bool read(const char* str, int& value) const;
@@ -2195,11 +2205,11 @@ void ReaderWriterP3DXML::parseLayer(osgPresentation::SlideShowConstructor& const
         if (constructor.getCurrentLayer())
         {
             constructor.getCurrentLayer()->setUserValue("name",name);
-            OSG_NOTICE<<"Setting current layers name "<<name<<std::endl;
+            OSG_INFO<<"Setting current layers name "<<name<<std::endl;
         }
         else
         {
-            OSG_NOTICE<<"getCurrentSlide() returns NULL, unable to set name "<<std::endl;
+            OSG_INFO<<"getCurrentSlide() returns NULL, unable to set name "<<std::endl;
         }
     }
 }
@@ -2544,11 +2554,11 @@ void ReaderWriterP3DXML::parseSlide (osgPresentation::SlideShowConstructor& cons
         if (constructor.getCurrentSlide())
         {
             constructor.getCurrentSlide()->setUserValue("name",name);
-            OSG_NOTICE<<"Setting current slide name "<<name<<std::endl;
+            OSG_INFO<<"Setting current slide name "<<name<<std::endl;
         }
         else
         {
-            OSG_NOTICE<<"getCurrentSlide() returns NULL, unable to set name "<<std::endl;
+            OSG_INFO<<"getCurrentSlide() returns NULL, unable to set name "<<std::endl;
         }
     }
 

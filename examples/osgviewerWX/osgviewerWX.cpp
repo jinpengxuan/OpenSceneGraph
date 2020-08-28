@@ -64,12 +64,17 @@ bool wxOsgApp::OnInit()
     osgViewer::Viewer *viewer = new osgViewer::Viewer;
     viewer->getCamera()->setGraphicsContext(gw);
     viewer->getCamera()->setViewport(0,0,width,height);
+
+    // set the draw and read buffers up for a double buffered window with rendering going to back buffer
+    viewer->getCamera()->setDrawBuffer(GL_BACK);
+    viewer->getCamera()->setReadBuffer(GL_BACK);
+
     viewer->addEventHandler(new osgViewer::StatsHandler);
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     // load the scene.
     wxString fname(argv[1]);
-    osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(std::string(fname.mb_str()));
+    osg::ref_ptr<osg::Node> loadedModel = osgDB::readRefNodeFile(std::string(fname.mb_str()));
     if (!loadedModel)
     {
         std::cout << argv[0] <<": No data loaded." << std::endl;
@@ -135,7 +140,8 @@ END_EVENT_TABLE()
 
 OSGCanvas::OSGCanvas(wxWindow *parent, wxWindowID id,
     const wxPoint& pos, const wxSize& size, long style, const wxString& name, int *attributes)
-    : wxGLCanvas(parent, id, pos, size, style|wxFULL_REPAINT_ON_RESIZE, name, attributes)
+    : wxGLCanvas(parent, id, attributes, pos, size, style|wxFULL_REPAINT_ON_RESIZE, name)
+    ,_context(this)
 {
     // default cursor to standard
     _oldCursor = *wxSTANDARD_CURSOR;
@@ -143,6 +149,11 @@ OSGCanvas::OSGCanvas(wxWindow *parent, wxWindowID id,
 
 OSGCanvas::~OSGCanvas()
 {
+}
+
+void OSGCanvas::SetContextCurrent()
+{
+	_context.SetCurrent(*this);
 }
 
 void OSGCanvas::OnPaint( wxPaintEvent& WXUNUSED(event) )
@@ -153,8 +164,6 @@ void OSGCanvas::OnPaint( wxPaintEvent& WXUNUSED(event) )
 
 void OSGCanvas::OnSize(wxSizeEvent& event)
 {
-    // this is also necessary to update the context on some platforms
-    wxGLCanvas::OnSize(event);
 
     // set GL viewport (not called by wxGLCanvas::OnSize on all platforms...)
     int width, height;
@@ -203,7 +212,7 @@ void OSGCanvas::OnKeyUp(wxKeyEvent &event)
     // event.Skip() to allow processing to continue.
 }
 
-void OSGCanvas::OnMouseEnter(wxMouseEvent &event)
+void OSGCanvas::OnMouseEnter(wxMouseEvent & /*event*/)
 {
     // Set focus to ourselves, so keyboard events get directed to us
     SetFocus();
@@ -332,7 +341,7 @@ void GraphicsWindowWX::useCursor(bool cursorOn)
 
 bool GraphicsWindowWX::makeCurrentImplementation()
 {
-    _canvas->SetCurrent();
+    _canvas->SetContextCurrent();
     return true;
 }
 

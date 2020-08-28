@@ -89,6 +89,19 @@ struct NoneOf
     const char* _str;
 };
 
+// Replaces all occurrences of "from" with the contents of "to"
+// It does only one pass, i.e. new matches created in a position before the current match are not replaced
+void replaceAll(std::string& str, const std::string& from, const std::string& to)
+{
+    std::string::size_type pos = 0;
+    while ((pos = str.find(from, pos)) != std::string::npos)
+    {
+        str.replace(pos, from.length(), to);
+
+        pos += to.length();
+    }
+}
+
 }
 
 using namespace osg;
@@ -223,13 +236,13 @@ ShaderBinary* ShaderBinary::readShaderBinaryFile(const std::string& fileName)
 
 Shader::Shader(Type type) :
     _type(type),
-    _shaderDefinesMode(USE_SHADER_PRAGMA)
+    _shaderPragmaMode(USE_SHADER_PRAGMA)
 {
 }
 
 Shader::Shader(Type type, const std::string& source) :
     _type(type),
-    _shaderDefinesMode(USE_SHADER_PRAGMA)
+    _shaderPragmaMode(USE_SHADER_PRAGMA)
 {
     setShaderSource( source);
 }
@@ -237,7 +250,7 @@ Shader::Shader(Type type, const std::string& source) :
 Shader::Shader(Type type, ShaderBinary* shaderBinary) :
     _type(type),
     _shaderBinary(shaderBinary),
-    _shaderDefinesMode(USE_SHADER_PRAGMA)
+    _shaderPragmaMode(USE_SHADER_PRAGMA)
 {
 }
 
@@ -249,7 +262,7 @@ Shader::Shader(const Shader& rhs, const osg::CopyOp& copyop):
     _shaderSource(rhs._shaderSource),
     _shaderBinary(rhs._shaderBinary),
     _codeInjectionMap(rhs._codeInjectionMap),
-    _shaderDefinesMode(rhs._shaderDefinesMode)
+    _shaderPragmaMode(rhs._shaderPragmaMode)
 {
 }
 
@@ -301,7 +314,7 @@ void Shader::setShaderSource( const std::string& sourceText )
     dirtyShader();
 }
 
-
+#ifdef OSG_USE_DEPRECATED_API
 Shader* Shader::readShaderFile( Type type, const std::string& fileName )
 {
     ref_ptr<Shader> shader = new Shader(type);
@@ -335,7 +348,7 @@ bool Shader::loadShaderSourceFromFile( const std::string& fileName )
     delete [] text;
     return true;
 }
-
+#endif
 
 const char* Shader::getTypename() const
 {
@@ -436,7 +449,7 @@ Shader::PerContextShader* Shader::getPCS(osg::State& state) const
         return 0;
     }
 
-    if (!state.supportsShaderRequirements(_shaderRequirements))
+    if (!state.supportsShaderRequirements(_shaderPragmas))
     {
         // OSG_NOTICE<<"Shader not supported "<<_shaderRequirements.size()<<std::endl;
         return 0;
@@ -448,11 +461,12 @@ Shader::PerContextShader* Shader::getPCS(osg::State& state) const
         _pcsList[contextID] = new ShaderObjects( this, contextID );
     }
 
-    const std::string defineStr = state.getDefineString(getShaderDefines());
+    std::string defineStr;
+    state.getDefineString(defineStr, _shaderPragmas);
     PerContextShader* pcs = _pcsList[contextID]->getPCS(defineStr);
     if (pcs) return pcs;
 
-    if (state.supportsShaderRequirements(_shaderRequirements))
+    if (state.supportsShaderRequirements(_shaderPragmas))
     {
         pcs = _pcsList[contextID]->createPerContextShader(defineStr);
     }
@@ -470,6 +484,7 @@ Shader::PerContextShader* Shader::getPCS(osg::State& state) const
 
 bool Shader::addProgramRef( Program* program )
 {
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_programSetMutex);
     ProgramSet::iterator itr = _programSet.find(program);
     if( itr != _programSet.end() ) return false;
 
@@ -479,6 +494,7 @@ bool Shader::addProgramRef( Program* program )
 
 bool Shader::removeProgramRef( Program* program )
 {
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_programSetMutex);
     ProgramSet::iterator itr = _programSet.find(program);
     if( itr == _programSet.end() ) return false;
 
@@ -494,6 +510,7 @@ void Shader::dirtyShader()
         if( _pcsList[cxt].valid() ) _pcsList[cxt]->requestCompile();
     }
 
+    OpenThreads::ScopedLock<OpenThreads::Mutex> lk(_programSetMutex);
     // Also mark Programs that depend on us as needing relink.
     for( ProgramSet::iterator itr = _programSet.begin();
         itr != _programSet.end(); ++itr )
@@ -567,7 +584,7 @@ void Shader::PerContextShader::compileShader(osg::State& state)
     if( ! _needsCompile ) return;
     _needsCompile = false;
 
-#if defined(OSG_GLES2_AVAILABLE)
+#if defined(OSG_GLES2_AVAILABLE) || defined(OSG_GLES3_AVAILABLE)
     if (_shader->getShaderBinary())
     {
         GLint numFormats = 0;
@@ -618,30 +635,45 @@ void Shader::PerContextShader::compileShader(osg::State& state)
 #endif
 
     std::string source = _shader->getShaderSource();
-    if (_shader->getType()==osg::Shader::VERTEX && (state.getUseVertexAttributeAliasing() || state.getUseModelViewAndProjectionUniforms()))
+    // if (_shader->getType()==osg::Shader::VERTEX && (state.getUseVertexAttributeAliasing() || state.getUseModelViewAndProjectionUniforms()))
     {
         state.convertVertexShaderSourceToOsgBuiltIns(source);
     }
 
 
-    if (osg::getNotifyLevel()>=osg::INFO)
-    {
-        std::string sourceWithLineNumbers = insertLineNumbers(source);
-        OSG_INFO << "\nCompiling " << _shader->getTypename()
-                 << " source:\n" << sourceWithLineNumbers << std::endl;
-    }
-
     GLint compiled = GL_FALSE;
 
     // OSG_NOTICE<<"Compiling PerContextShader "<<this<<" ShaderDefine="<<getDefineString()<<std::endl;
+    bool printOutShaders = osg::getNotifyLevel()>=osg::INFO;//NOTICE;
 
     if (_defineStr.empty())
     {
         const GLchar* sourceText = reinterpret_cast<const GLchar*>(source.c_str());
+
+        if (printOutShaders)
+        {
+            std::string sourceToCompile;
+            if (!_defineStr.empty()) sourceToCompile += _defineStr;
+            if (!source.empty()) sourceToCompile += source;
+
+            std::string sourceWithLineNumbers = insertLineNumbers(sourceToCompile);
+            OSG_INFO << "\nCompiling " << _shader->getTypename()
+                    << " source:\n" << sourceWithLineNumbers << std::endl;
+        }
+
         _extensions->glShaderSource( _glShaderHandle, 1, &sourceText, NULL );
+
+        if (osg::getNotifyLevel()>=osg::INFO)
+        {
+            std::string sourceWithLineNumbers = insertLineNumbers(source);
+            OSG_INFO << "\nCompiling A :" << _shader->getTypename()
+                    << " source:\n" << sourceWithLineNumbers << std::endl;
+        }
     }
     else
     {
+        // Convert all windows line endings to \n
+        replaceAll(source, "\r\n", " \n");
 
         std::string versionLine;
         unsigned int lineNum = 0;
@@ -675,21 +707,54 @@ void Shader::PerContextShader::compileShader(osg::State& state)
 
         if (!versionLine.empty())
         {
-            // OSG_NOTICE<<"Shader::PerContextShader::compileShader() : Found #version,  lineNum = "<<lineNum<<" ["<<versionLine<<"] new source = ["<<source<<"]"<<std::endl;
+            if (printOutShaders)
+            {
+                std::string sourceWithLineNumbers = insertLineNumbers(versionLine + _defineStr + source);
+                OSG_NOTICE << "\nCompiling " << _shader->getTypename()
+                           << " source:\n" << sourceWithLineNumbers << std::endl;
+            }
+
             const GLchar* sourceText[3];
-            //OSG_NOTICE<<"glShaderSource() ["<<versionLine<<"] "<<std::endl<<"["<<_defineStr<<"], ["<<sourceText<<"]"<<std::endl;
             sourceText[0] = reinterpret_cast<const GLchar*>(versionLine.c_str());
             sourceText[1] = reinterpret_cast<const GLchar*>(_defineStr.c_str());
             sourceText[2] = reinterpret_cast<const GLchar*>(source.c_str());
             _extensions->glShaderSource( _glShaderHandle, 3, sourceText, NULL );
+
+            if (osg::getNotifyLevel()>=osg::INFO)
+            {
+                std::string sourceWithLineNumbers = insertLineNumbers(versionLine+_defineStr+source);
+                OSG_INFO << "\nCompiling B: " << _shader->getTypename()
+                        << " source:\n" << sourceWithLineNumbers << std::endl;
+            }
+
+            // OSG_NOTICE<<"   Version Line : ["<<std::endl<<versionLine<<"]"<<std::endl;
+            // OSG_NOTICE<<"   DefineStr : ["<<std::endl<<_defineStr<<"]"<<std::endl;
+            // OSG_NOTICE<<"   Source : ["<<std::endl<<source<<"]"<<std::endl;
         }
         else
         {
+            if (printOutShaders)
+            {
+                std::string sourceWithLineNumbers = insertLineNumbers(_defineStr + source);
+                OSG_NOTICE << "\nCompiling " << _shader->getTypename()
+                           << " source:\n" << sourceWithLineNumbers << std::endl;
+            }
+
             const GLchar* sourceText[2];
-            //OSG_NOTICE<<"glShaderSource() ["<<_defineStr<<"], ["<<sourceText<<"]"<<std::endl;
             sourceText[0] = reinterpret_cast<const GLchar*>(_defineStr.c_str());
             sourceText[1] = reinterpret_cast<const GLchar*>(source.c_str());
             _extensions->glShaderSource( _glShaderHandle, 2, sourceText, NULL );
+
+
+            if (osg::getNotifyLevel()>=osg::INFO)
+            {
+                std::string sourceWithLineNumbers = insertLineNumbers(_defineStr+source);
+                OSG_INFO << "\nCompiling C: " << _shader->getTypename()
+                        << " source:\n" << sourceWithLineNumbers << std::endl;
+            }
+
+            // OSG_NOTICE<<"   DefineStr : ["<<std::endl<<_defineStr<<"]"<<std::endl;
+            // OSG_NOTICE<<"   Source : ["<<std::endl<<source<<"]"<<std::endl;
         }
     }
     _extensions->glCompileShader( _glShaderHandle );
@@ -737,10 +802,12 @@ void Shader::PerContextShader::detachShader(GLuint program) const
     _extensions->glDetachShader( program, _glShaderHandle );
 }
 
-void Shader::_parseShaderDefines(const std::string& str, ShaderDefines& defines)
+bool Shader::_parseShaderDefines(const std::string& str, ShaderDefines& defines, unsigned int& index)
 {
     OSG_INFO<<"Shader::_parseShaderDefines("<<str<<")"<<std::endl;
     std::string::size_type start_of_parameter = 0;
+    bool firstString = true;
+    bool indexSet = false;
     do
     {
         // skip spaces, tabs, commans
@@ -763,24 +830,44 @@ void Shader::_parseShaderDefines(const std::string& str, ShaderDefines& defines)
         if (start_of_parameter<end_of_parameter)
         {
             std::string parameter = str.substr(start_of_parameter, end_of_parameter-start_of_parameter);
-            defines.insert(parameter);
-            OSG_INFO<<"   defines.insert("<<parameter<<")"<<std::endl;
+
+            if (firstString)
+            {
+                firstString = false;
+                if (parameter[0]>='0' && parameter[0]<='9')
+                {
+                    index = atoi(parameter.c_str());
+                    indexSet = false;
+                    OSG_INFO<<"   setting index("<<index<<")"<<std::endl;
+                }
+                else
+                {
+                    OSG_INFO<<"   defines.insert("<<parameter<<")"<<std::endl;
+                    defines.insert(parameter);
+                }
+            }
+            else
+            {
+                OSG_INFO<<"   defines.insert("<<parameter<<")"<<std::endl;
+                defines.insert(parameter);
+            }
+
         }
 
         start_of_parameter = end_of_parameter+1;
 
     } while (start_of_parameter<str.size());
+    return indexSet;
 }
 
 
 void Shader::_computeShaderDefines()
 {
-    if (_shaderDefinesMode==USE_MANUAL_SETTINGS) return;
+    if (_shaderPragmaMode==USE_MANUAL_SETTINGS) return;
 
     std::string::size_type pos = 0;
 
-    _shaderDefines.clear();
-    _shaderRequirements.clear();
+    _shaderPragmas.clear();
 
     while ((pos = _shaderSource.find("#pragma", pos))!=std::string::npos)
     {
@@ -804,27 +891,21 @@ void Shader::_computeShaderDefines()
                 std::string str(_shaderSource, open_brackets+1, eol-open_brackets-1);
 
                 // OSG_NOTICE<<"    parameter str = ["<<str<<"]"<<std::endl;
-                if (keyword == "import_defines") _parseShaderDefines(str, _shaderDefines);
-                else if (keyword == "requires") _parseShaderDefines(str, _shaderRequirements);
+                unsigned int index;
+                if (keyword == "import_defines") _parseShaderDefines(str, _shaderPragmas.defines, index);
+                else if (keyword == "import_modes") _parseShaderDefines(str, _shaderPragmas.modes, index);
+                else if (keyword == "import_texture_modes")
+                {
+                    ShaderDefines sd;
+                    index = 0;
+                    _parseShaderDefines(str, sd, index);
+                    if (index>=_shaderPragmas.textureModes.size()) _shaderPragmas.textureModes.resize(index+1);
+                    _shaderPragmas.textureModes[index] = sd;
+                }
+                else if (keyword == "requires") _parseShaderDefines(str, _shaderPragmas.requirements, index);
                 else {
-                    //OSG_NOTICE<<"  keyword not matched ["<<keyword<<"]"<<std::endl;
-                    _parseShaderDefines(str, _shaderDefines);
+                    OSG_NOTICE<<"  keyword not matched ["<<keyword<<"]"<<std::endl;
                 }
-#if 1
-                for(ShaderDefines::iterator itr = _shaderDefines.begin();
-                    itr != _shaderDefines.end();
-                    ++itr)
-                {
-                    OSG_INFO<<"      define ["<<*itr<<"]"<<std::endl;
-                }
-
-                for(ShaderDefines::iterator itr = _shaderRequirements.begin();
-                    itr != _shaderRequirements.end();
-                    ++itr)
-                {
-                    OSG_INFO<<"      requirements ["<<*itr<<"]"<<std::endl;
-                }
-#endif
 
             }
 #if 1
@@ -838,5 +919,39 @@ void Shader::_computeShaderDefines()
         pos = eol;
     }
 
+#if 0
+    for(ShaderDefines::iterator itr = _shaderPragmas.defines.begin();
+        itr != _shaderPragmas.defines.end();
+        ++itr)
+    {
+        OSG_NOTICE<<"      define ["<<*itr<<"]"<<std::endl;
+    }
+
+    for(ShaderDefines::iterator itr = _shaderPragmas.requirements.begin();
+        itr != _shaderPragmas.requirements.end();
+        ++itr)
+    {
+        OSG_NOTICE<<"      requirements ["<<*itr<<"]"<<std::endl;
+    }
+
+    for(ShaderDefines::iterator itr = _shaderPragmas.modes.begin();
+        itr != _shaderPragmas.modes.end();
+        ++itr)
+    {
+        OSG_NOTICE<<"      modes ["<<*itr<<"]"<<std::endl;
+    }
+
+    for(unsigned int i=0; i<_shaderPragmas.textureModes.size(); ++i)
+    {
+        OSG_NOTICE<<"      texture_modes, unit=["<<i<<"]"<<std::endl;
+        const ShaderDefines& tsd = _shaderPragmas.textureModes[i];
+        for(ShaderDefines::const_iterator itr = tsd.begin();
+            itr != tsd.end();
+            ++itr)
+        {
+            OSG_NOTICE<<"          texture_modes ["<<*itr<<"]"<<std::endl;
+        }
+    }
+#endif
 }
 

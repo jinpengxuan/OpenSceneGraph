@@ -32,7 +32,7 @@ SET(TARGET_COMMON_LIBRARIES
     osgUtil
 )
 
-OPTION(BUILD_OSG_PLUGINS_BY_DEFAULT "If set, all available plugins are built by default and each plugin can be disabled from the build by setting BUILD_OSG_PLUGIN_<PLUGINNAME> to 0. If not set, no plugins are built by default and each desired plugin must be explicitely enabled by setting BUILD_OSG_PLUGIN_<PLUGINNAME> to 1." ON) 
+OPTION(BUILD_OSG_PLUGINS_BY_DEFAULT "If set, all available plugins are built by default and each plugin can be disabled from the build by setting BUILD_OSG_PLUGIN_<PLUGINNAME> to 0. If not set, no plugins are built by default and each desired plugin must be explicitly enabled by setting BUILD_OSG_PLUGIN_<PLUGINNAME> to 1." ON)
 
 # Macro used for adding plugins below. By default, all plugins are built
 # but can be disabled by setting the CMake Variable BUILD_OSG_PLUGIN_<PLUGINNAME> to 0.
@@ -111,10 +111,10 @@ ENDIF()
 IF(GIFLIB_FOUND)
     ADD_PLUGIN_DIRECTORY(gif)
 ENDIF()
-IF(PNG_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE)
+IF(PNG_FOUND AND ZLIB_FOUND)
     ADD_PLUGIN_DIRECTORY(png)
 ENDIF()
-IF(TIFF_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE)
+IF(TIFF_FOUND)
     ADD_PLUGIN_DIRECTORY(tiff)
 ENDIF()
 IF(GDAL_FOUND)
@@ -159,10 +159,6 @@ IF(NOT OSG_GLES1_AVAILABLE AND NOT OSG_GLES2_AVAILABLE)
     IF(INVENTOR_FOUND)
         ADD_PLUGIN_DIRECTORY(Inventor)
     ENDIF()
-ENDIF()
-
-IF(OPENVRML_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE)
-    ADD_PLUGIN_DIRECTORY(vrml)
 ENDIF()
 
 IF(COLLADA_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE)
@@ -211,10 +207,6 @@ IF(OSG_CPP_EXCEPTIONS_AVAILABLE)
     ADD_PLUGIN_DIRECTORY(lwo)
     ADD_PLUGIN_DIRECTORY(ply)
     ADD_PLUGIN_DIRECTORY(txp)
-ENDIF()
-
-IF(XINE_FOUND)
-    ADD_PLUGIN_DIRECTORY(xine)
 ENDIF()
 
 IF(FFMPEG_FOUND AND OSG_CPP_EXCEPTIONS_AVAILABLE)

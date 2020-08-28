@@ -32,6 +32,11 @@ FOX_OSG_MDIView::FOX_OSG_MDIView(FXMDIClient *p, const FXString &name,
     osgViewer::Viewer *viewer = new osgViewer::Viewer;
     viewer->getCamera()->setGraphicsContext(m_gwFox);
     viewer->getCamera()->setViewport(0,0,w,h);
+
+    // set the draw and read buffers up for a double buffered window with rendering going to back buffer
+    viewer->getCamera()->setDrawBuffer(GL_BACK);
+    viewer->getCamera()->setReadBuffer(GL_BACK);
+
     viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
     // FOX example does not catch the close of the graphics window, so
@@ -39,7 +44,7 @@ FOX_OSG_MDIView::FOX_OSG_MDIView(FXMDIClient *p, const FXString &name,
     viewer->setKeyEventSetsDone(0);
 
     // load the scene.
-    osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("cow.osgt");
+    osg::ref_ptr<osg::Node> loadedModel = osgDB::readRefNodeFile("cow.osgt");
     if (!loadedModel)
     {
         return ;

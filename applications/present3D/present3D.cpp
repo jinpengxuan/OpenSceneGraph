@@ -1,13 +1,14 @@
-/* -*-c++-*- Present3D - Copyright (C) 1999-2006 Robert Osfield
+/* -*-c++-*- OpenSceneGraph - Copyright (C) 1998-2006 Robert Osfield
  *
- * This software is open source and may be redistributed and/or modified under
- * the terms of the GNU General Public License (GPL) version 2.0.
- * The full license is in LICENSE.txt file included with this distribution,.
+ * This library is open source and may be redistributed and/or modified under
+ * the terms of the OpenSceneGraph Public License (OSGPL) version 0.0 or
+ * (at your option) any later version.  The full license is in LICENSE file
+ * included with this distribution, and on the openscenegraph.org website.
  *
- * This software is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * include LICENSE.txt for more details.
+ * OpenSceneGraph Public License for more details.
 */
 
 #include <osg/Geometry>
@@ -336,14 +337,10 @@ int main( int argc, char **argv )
     std::string url, username, password;
     while(arguments.read("--login",url, username, password))
     {
-        if (!osgDB::Registry::instance()->getAuthenticationMap())
-        {
-            osgDB::Registry::instance()->setAuthenticationMap(new osgDB::AuthenticationMap);
-            osgDB::Registry::instance()->getAuthenticationMap()->addAuthenticationDetails(
-                url,
-                new osgDB::AuthenticationDetails(username, password)
-            );
-        }
+        osgDB::Registry::instance()->getOrCreateAuthenticationMap()->addAuthenticationDetails(
+            url,
+            new osgDB::AuthenticationDetails(username, password)
+        );
     }
 
 
@@ -487,7 +484,7 @@ int main( int argc, char **argv )
         while (arguments.read("-p",pathfile))
         {
             osgGA::AnimationPathManipulator* apm = new osgGA::AnimationPathManipulator(pathfile);
-            if (apm || !apm->valid())
+            if (apm && !apm->getAnimationPath()->empty())
             {
                 unsigned int num = keyswitchManipulator->getNumMatrixManipulators();
                 keyswitchManipulator->addMatrixManipulator( keyForAnimationPath, "Path", apm );

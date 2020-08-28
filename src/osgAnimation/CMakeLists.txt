@@ -34,6 +34,8 @@ SET(TARGET_H
     ${HEADER_PATH}/RigTransform
     ${HEADER_PATH}/RigTransformHardware
     ${HEADER_PATH}/RigTransformSoftware
+    ${HEADER_PATH}/MorphTransformHardware
+    ${HEADER_PATH}/MorphTransformSoftware
     ${HEADER_PATH}/Sampler
     ${HEADER_PATH}/Skeleton
     ${HEADER_PATH}/StackedMatrixElement
@@ -75,6 +77,8 @@ SET(TARGET_SRC
     RigGeometry.cpp
     RigTransformHardware.cpp
     RigTransformSoftware.cpp
+    MorphTransformHardware.cpp
+    MorphTransformSoftware.cpp
     Skeleton.cpp
     StackedMatrixElement.cpp
     StackedQuaternionElement.cpp
@@ -101,6 +105,8 @@ SET(TARGET_LIBRARIES
     osgViewer
     OpenThreads
 )
+
+SET(COMPONENT_PKGCONFIG_DESCRIPTION "Skinning and morphing library for Openscenegraph")
 
 SETUP_LIBRARY(${LIB_NAME})
 

@@ -125,7 +125,7 @@ ConvertFromInventor::restructure(void* data, SoCallbackAction* action,
             if (!child->isOfType(SoSeparator::getClassTypeId()) &&
                 child->affectsState()) {
 
-                // Put the node bellow separator
+                // Put the node below separator
                 SoSeparator *s = new SoSeparator;
                 s->addChild(group->getChild(i));
                 group->replaceChild(i, s);
@@ -1492,7 +1492,7 @@ ConvertFromInventor::preLight(void* data, SoCallbackAction* action,
     // Set object names
     const char* name = ivLight->getName().getString();
     osgLight->setName(name);
-    //ls->setName(name); -> this will be handled bellow in ivPushState
+    //ls->setName(name); -> this will be handled below in ivPushState
 
 #if 1 // Let's place the light to its place in scene graph instead of
       // old approach of global light group.
@@ -1537,15 +1537,14 @@ convertShader(osg::Shader::Type osgShaderType,
         return true;
 
     // Create shader
-    osg::ref_ptr<osg::Shader> osgShader = new osg::Shader(osgShaderType);
+    osg::ref_ptr<osg::Shader> osgShader;
     if (ivShader->sourceType.getValue() == SoShaderObject::FILENAME)
-        osgShader->loadShaderSourceFromFile(ivShader->sourceProgram.getValue().getString());
+        osgShader = osgDB::readRefShaderFile(osgShaderType, ivShader->sourceProgram.getValue().getString());
     else
     if (ivShader->sourceType.getValue() == SoShaderObject::GLSL_PROGRAM)
-        osgShader->setShaderSource(ivShader->sourceProgram.getValue().getString());
+        osgShader = new osg::Shader(osgShaderType, ivShader->sourceProgram.getValue().getString());
     else {
-        OSG_WARN << NOTIFY_HEADER << "Can not convert "
-                  << "shader. Unsupported shader language." << std::endl;
+        OSG_WARN << NOTIFY_HEADER << "Can not convert shader. Unsupported shader language." << std::endl;
         return false;
     }
 
@@ -1837,7 +1836,7 @@ ConvertFromInventor::getStateSet(SoCallbackAction* action)
         const SbColor &c = ivState.currentAmbientLight;
         lightModel->setAmbientIntensity(osg::Vec4(c[0], c[1], c[2], 1.0));
 #if 0
-// disable as two sided lighting causes problem under NVidia, and the above osg::Material settings are single sided anway..
+// disable as two sided lighting causes problems under NVidia, and the above osg::Material settings are single sided anyway..
 update: The mentioned bug is probably just for very old NVidia drivers (commit time of the comment is 2005-03-18).
         The proper solution should be to set two sided lighting based on SoShapeHints node. Need to be developed. PCJohn-2010-01-20
         // Set two sided lighting

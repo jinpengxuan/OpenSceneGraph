@@ -254,7 +254,7 @@ JSONObject* createImage(osg::Image* image, bool inlineImages, int maxTextureDime
                     in.seekg(0, std::ifstream::beg);
                     std::vector<unsigned char> rawData;
                     rawData.resize(size);
-                    in.read(reinterpret_cast<char*>(rawData.data()),size);
+                    in.read(reinterpret_cast<char*>(&rawData[0]),size);
                     in.seekg(std::ios_base::beg);
 
                     std::stringstream out;
@@ -871,7 +871,15 @@ JSONObject* WriteVisitor::createJSONPagedLOD(osg::PagedLOD *plod)
         ss << "Range ";
         ss << i;
         std::string str = ss.str();
-        rangeObject->getMaps()[str] =  new JSONVec2Array(osg::Vec2(plod->getRangeList()[i].first, plod->getRangeList()[i].second));
+
+        osg::Vec2 range(plod->getRangeList()[i].first, plod->getRangeList()[i].second);
+
+        // Since OSGJS uses pixel area, use square range
+        if (plod->getRangeMode() == osg::LOD::PIXEL_SIZE_ON_SCREEN) {
+          range.set(pow(range.x(), 2.0f), pow(range.y(), 2.0f));
+        }
+
+        rangeObject->getMaps()[str] = new JSONVec2Array(range);
     }
     jsonPlod->getMaps()["RangeList"] = rangeObject;
     // File List
@@ -1026,8 +1034,6 @@ JSONObject* WriteVisitor::createJSONStateSet(osg::StateSet* stateset)
             osg::ref_ptr<osg::CullFace> defaultCull = new osg::CullFace();
             cf = createJSONCullFace(defaultCull.get());
             cf->getMaps()["Mode"] = new JSONValue<std::string>("DISABLE");
-            obj->getMaps()["osg.CullFace"] = cf;
-            attributeList->getArray().push_back(obj);
         } else {
             if (!cullFace) {
                 cullFace = new osg::CullFace();

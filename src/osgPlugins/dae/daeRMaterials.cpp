@@ -280,10 +280,10 @@ void daeReader::processProfileCOMMON(osg::StateSet *ss, domProfile_COMMON *pc )
 {
     domProfile_COMMON::domTechnique *teq = pc->getTechnique();
 
-    domProfile_COMMON::domTechnique::domConstant *c = teq->getConstant();
-    domProfile_COMMON::domTechnique::domLambert *l = teq->getLambert();
-    domProfile_COMMON::domTechnique::domPhong *p = teq->getPhong();
-    domProfile_COMMON::domTechnique::domBlinn *b = teq->getBlinn();
+    domProfile_COMMON::domTechnique::domConstant *c = teq ? teq->getConstant() : NULL;
+    domProfile_COMMON::domTechnique::domLambert *l = teq ? teq->getLambert() : NULL;
+    domProfile_COMMON::domTechnique::domPhong *p = teq ? teq->getPhong() : NULL;
+    domProfile_COMMON::domTechnique::domBlinn *b = teq ? teq->getBlinn() : NULL;
 
     ss->setMode( GL_CULL_FACE, osg::StateAttribute::ON ); // Cull Back faces
 
@@ -588,8 +588,6 @@ bool daeReader::processColorOrTextureType(const osg::StateSet* ss,
         return false;
     }
     bool retVal = false;
-
-    std::string texCoordSet;
 
     //osg::StateAttribute *sa = NULL;
     //TODO: Make all channels process <param ref=""> type of value
@@ -1017,6 +1015,11 @@ osg::Texture2D* daeReader::processTexture(
     domFx_surface_common *surface = NULL;
     domImage *dImg = NULL;
 
+    if(tex->getTexture() == NULL)
+    {
+        return NULL;
+    }
+
     std::string target = std::string("./") + std::string(tex->getTexture());
     OSG_INFO<<"processTexture("<<target<<")"<<std::endl;
 
@@ -1133,7 +1136,7 @@ osg::Texture2D* daeReader::processTexture(
     }
     else
     {
-        osg::ref_ptr<osg::Image> img = osgDB::readRefImageFile(parameters.filename);
+        osg::ref_ptr<osg::Image> img = osgDB::readRefImageFile(parameters.filename, _pluginOptions.options.get());
 
         if (!img.valid())
         {
@@ -1159,7 +1162,10 @@ osg::Texture2D* daeReader::processTexture(
         _textureParamMap[parameters] = t2D;
     }
 
-    _texCoordSetMap[TextureToCoordSetMap::key_type(ss, tuu)] = tex->getTexcoord();
+    if(tex->getTexcoord() != NULL)
+    {
+        _texCoordSetMap[TextureToCoordSetMap::key_type(ss, tuu)] = tex->getTexcoord();
+    }
 
     return t2D;
 }

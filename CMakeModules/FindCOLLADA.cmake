@@ -23,40 +23,45 @@ ELSE ()
 ENDIF()
 
 
-
-
-
 IF(APPLE)
     SET(COLLADA_BUILDNAME "mac")
-    SET(COLLADA_BOOST_BUILDNAME "mac")
+    SET(COLLADA_BOOST_BUILDNAME ${COLLADA_BUILDNAME})
 ELSEIF(MINGW)
     SET(COLLADA_BUILDNAME "mingw")
-    SET(COLLADA_BOOST_BUILDNAME "mingw")
-ELSEIF(MSVC14)
+    SET(COLLADA_BOOST_BUILDNAME ${COLLADA_BUILDNAME})
+ELSEIF((MSVC_VERSION GREATER 1910) OR (MSVC_VERSION EQUAL 1910))
     SET(COLLADA_BUILDNAME "vc14")
-    string(REPLACE "v" "vc" COLLADA_BOOST_BUILDNAME ${CMAKE_VS_PLATFORM_TOOLSET})
-ELSEIF(MSVC12)
+    SET(COLLADA_BOOST_BUILDNAME "vc141")
+ELSEIF(MSVC_VERSION EQUAL 1900)
+    SET(COLLADA_BUILDNAME "vc14")
+    SET(COLLADA_BOOST_BUILDNAME "vc140")
+ELSEIF(MSVC_VERSION EQUAL 1800)
     SET(COLLADA_BUILDNAME "vc12")
-    string(REPLACE "v" "vc" COLLADA_BOOST_BUILDNAME ${CMAKE_VS_PLATFORM_TOOLSET})
-ELSEIF(MSVC11)
+    SET(COLLADA_BOOST_BUILDNAME "vc120")
+ELSEIF(MSVC_VERSION EQUAL 1700)
     SET(COLLADA_BUILDNAME "vc11")
-    string(REPLACE "v" "vc" COLLADA_BOOST_BUILDNAME ${CMAKE_VS_PLATFORM_TOOLSET})
-ELSEIF(MSVC10)
+    SET(COLLADA_BOOST_BUILDNAME "vc110")
+ELSEIF(MSVC_VERSION EQUAL 1600)
     SET(COLLADA_BUILDNAME "vc10")
-    string(REPLACE "v" "vc" COLLADA_BOOST_BUILDNAME ${CMAKE_VS_PLATFORM_TOOLSET})
-ELSEIF(MSVC90)
+    SET(COLLADA_BOOST_BUILDNAME "vc100")
+ELSEIF(MSVC_VERSION EQUAL 1500)
     SET(COLLADA_BUILDNAME "vc9")
-    string(REPLACE "v" "vc" COLLADA_BOOST_BUILDNAME ${CMAKE_VS_PLATFORM_TOOLSET})
-ELSEIF(MSVC80)
+    SET(COLLADA_BOOST_BUILDNAME "vc90")
+ELSEIF(MSVC_VERSION EQUAL 1400)
     SET(COLLADA_BUILDNAME "vc8")
-    string(REPLACE "v" "vc" COLLADA_BOOST_BUILDNAME ${CMAKE_VS_PLATFORM_TOOLSET})
-ELSE(APPLE)
+    SET(COLLADA_BOOST_BUILDNAME "vc80")
+ELSE()
   SET(COLLADA_BUILDNAME "linux")
-  SET(COLLADA_BOOST_BUILDNAME "linux")
-ENDIF(APPLE)
+  SET(COLLADA_BOOST_BUILDNAME ${COLLADA_BUILDNAME})
+ENDIF()
+
+IF(${CMAKE_VS_PLATFORM_TOOLSET})
+    string(REPLACE "v" "vc" COLLADA_BOOST_BUILDNAME ${CMAKE_VS_PLATFORM_TOOLSET})
+ENDIF()
 
 
 FIND_PATH(COLLADA_INCLUDE_DIR dae.h
+    PATHS
     ${COLLADA_DOM_ROOT}/include
     $ENV{COLLADA_DIR}/include
     $ENV{COLLADA_DIR}
@@ -64,28 +69,23 @@ FIND_PATH(COLLADA_INCLUDE_DIR dae.h
     /Library/Frameworks
     /opt/local/Library/Frameworks #macports
     /usr/local/include
-    /usr/local/include/colladadom
-    /usr/local/include/collada-dom
-    /usr/local/include/collada-dom2.4
-    /usr/local/include/collada-dom2.2
-    /opt/local/include/collada-dom
-    /opt/local/include/collada-dom2.4
-    /opt/local/include/collada-dom2.2
     /usr/include/
-    /usr/include/colladadom
-    /usr/include/collada-dom
-    /usr/include/collada-dom2.4
-    /usr/include/collada-dom2.2
     /sw/include # Fink
     /opt/local/include # DarwinPorts
     /opt/csw/include # Blastwave
     /opt/include
     /usr/freeware/include
     ${ACTUAL_3DPARTY_DIR}/include
+    PATH_SUFFIXES
+    colladadom
+    collada-dom
+    collada-dom2.5
+    collada-dom2.4
+    collada-dom2.2
 )
 
 FIND_LIBRARY(COLLADA_DYNAMIC_LIBRARY
-    NAMES collada_dom collada14dom Collada14Dom libcollada14dom21 libcollada14dom22 collada-dom2.4-dp collada-dom2.4-dp-${COLLADA_BOOST_BUILDNAME}-mt
+    NAMES collada_dom collada14dom Collada14Dom libcollada14dom21 libcollada14dom22 collada-dom2.5-dp collada-dom2.5-dp-${COLLADA_BOOST_BUILDNAME}-mt collada-dom2.4-dp collada-dom2.4-dp-${COLLADA_BOOST_BUILDNAME}-mt
     PATHS
     ${COLLADA_DOM_ROOT}/build/${COLLADA_BUILDNAME}-1.4
     ${COLLADA_DOM_ROOT}
@@ -109,7 +109,7 @@ FIND_LIBRARY(COLLADA_DYNAMIC_LIBRARY
 )
 
 FIND_LIBRARY(COLLADA_DYNAMIC_LIBRARY_DEBUG
-    NAMES collada_dom-d collada14dom-d Collada14Dom-d libcollada14dom21-d libcollada14dom22-d  collada-dom2.4-dp-d collada-dom2.4-dp-${COLLADA_BOOST_BUILDNAME}-mt-d
+    NAMES collada_dom-d collada14dom-d Collada14Dom-d libcollada14dom21-d libcollada14dom22-d  collada-dom2.5-dp-d collada-dom2.5-dp-${COLLADA_BOOST_BUILDNAME}-mt-d collada-dom2.4-dp-d collada-dom2.4-dp-${COLLADA_BOOST_BUILDNAME}-mt-d
     PATHS
     ${COLLADA_DOM_ROOT}/build/${COLLADA_BUILDNAME}-1.4-d
     ${COLLADA_DOM_ROOT}
